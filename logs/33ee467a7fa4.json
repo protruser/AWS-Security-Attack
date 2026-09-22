@@ -1,0 +1,14 @@
+{
+  "id": "33ee467a7fa4",
+  "batch_id": "bea4dd82aa13",
+  "scenario": "bruteforce",
+  "surface_id": "1a608930f1b9",
+  "surface_name": "로그인",
+  "target": "127.0.0.1:5000/login (http-post-form)",
+  "status": "completed",
+  "started_at": "2026-09-22T05:27:31+00:00",
+  "finished_at": "2026-09-22T05:27:32+00:00",
+  "summary": "유효한 자격증명 발견 · admin/password · Hydra 기준",
+  "vulnerability_found": true,
+  "exit_code": 0
+}

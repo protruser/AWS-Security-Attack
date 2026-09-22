@@ -1,0 +1,5 @@
+# Python deps only. The actual scan tools (sqlmap, zaproxy, gobuster, hydra,
+# nmap, awscli, trivy) are system packages, not pip packages — see
+# install-tools.sh (or README.md) to install those.
+Flask>=3.0,<4.0
+

@@ -1,0 +1,10 @@
+[
+  {
+    "name": "nginx 웹 서버",
+    "image": "nginx:1.25"
+  },
+  {
+    "name": "alpine 베이스 이미지",
+    "image": "alpine:3.19"
+  }
+]

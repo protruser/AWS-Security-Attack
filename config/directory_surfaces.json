@@ -1,0 +1,10 @@
+[
+  {
+    "name": "루트 경로 탐색",
+    "base_path": "/",
+    "wordlist": "small",
+    "id": "c9d40715a576",
+    "base_url": "http://127.0.0.1:5000",
+    "authorized": true
+  }
+]

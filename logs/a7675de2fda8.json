@@ -1,0 +1,14 @@
+{
+  "id": "a7675de2fda8",
+  "batch_id": "ebdd4a639947",
+  "scenario": "image",
+  "surface_id": "81d6f768d871",
+  "surface_name": "demo-shop",
+  "target": "aws-security-service-shop-app:latest",
+  "status": "completed",
+  "started_at": "2026-09-22T06:30:27+00:00",
+  "finished_at": "2026-09-22T06:30:27+00:00",
+  "summary": "취약점 165건 발견 · Trivy 기준",
+  "vulnerability_found": true,
+  "exit_code": 0
+}

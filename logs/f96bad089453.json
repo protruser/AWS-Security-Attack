@@ -1,0 +1,14 @@
+{
+  "id": "f96bad089453",
+  "batch_id": "8f688932160d",
+  "scenario": "portscan",
+  "surface_id": "top-ports",
+  "surface_name": "주요 포트 스캔",
+  "target": "127.0.0.1:1-1024",
+  "status": "completed",
+  "started_at": "2026-09-22T00:22:14+00:00",
+  "finished_at": "2026-09-22T00:22:14+00:00",
+  "summary": "열린 포트 1개 발견 · Nmap 기준",
+  "vulnerability_found": true,
+  "exit_code": 0
+}

@@ -1,0 +1,7 @@
+[
+  {
+    "name": "demo-shop",
+    "image": "aws-security-service-shop-app:latest",
+    "id": "81d6f768d871"
+  }
+]

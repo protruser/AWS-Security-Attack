@@ -1,0 +1,16 @@
+[
+  {
+    "id": "top-ports",
+    "name": "주요 포트 스캔",
+    "ports": "1-1024",
+    "host": "127.0.0.1",
+    "authorized": true
+  },
+  {
+    "name": "웹사이트",
+    "ports": "5000,5050",
+    "id": "942b7695e4ad",
+    "host": "127.0.0.1",
+    "authorized": true
+  }
+]

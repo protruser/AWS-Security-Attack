@@ -1,0 +1,7 @@
+admin
+root
+test
+user
+administrator
+guest
+demo

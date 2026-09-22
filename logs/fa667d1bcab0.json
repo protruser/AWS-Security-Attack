@@ -1,0 +1,14 @@
+{
+  "id": "fa667d1bcab0",
+  "batch_id": "4766d8c4d0b0",
+  "scenario": "bruteforce",
+  "surface_id": "login-quick",
+  "surface_name": "로그인 폼 무차별 대입",
+  "target": "127.0.0.1:5000/login (http-post-form)",
+  "status": "completed",
+  "started_at": "2026-09-22T02:06:03+00:00",
+  "finished_at": "2026-09-22T02:06:04+00:00",
+  "summary": "검사 완료 · 유효한 자격증명 없음",
+  "vulnerability_found": false,
+  "exit_code": 0
+}

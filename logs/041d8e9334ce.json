@@ -1,0 +1,14 @@
+{
+  "id": "041d8e9334ce",
+  "batch_id": "591d21846815",
+  "scenario": "bruteforce",
+  "surface_id": "login-quick",
+  "surface_name": "로그인 폼 무차별 대입",
+  "target": "127.0.0.1:5000/login (http-post-form)",
+  "status": "timeout",
+  "started_at": "2026-09-22T02:12:50+00:00",
+  "finished_at": "2026-09-22T02:14:50+00:00",
+  "summary": "검사 중단 · 로그 확인 필요",
+  "vulnerability_found": false,
+  "exit_code": -9
+}

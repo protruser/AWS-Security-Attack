@@ -1,0 +1,11 @@
+[
+  {
+    "name": "상품 조회",
+    "endpoint": "/search",
+    "parameter": "q",
+    "test_value": "키보드",
+    "id": "7c85378fc300",
+    "base_url": "http://127.0.0.1:5000",
+    "authorized": true
+  }
+]

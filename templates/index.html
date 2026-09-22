@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f1725">
+  <title>Attack Lab — Simulation Console</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='16-custom-target') }}">
+  <script src="{{ url_for('static', filename='app.js', v='16-custom-target') }}" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#overview" aria-label="Attack Lab 홈"><span class="brand-symbol" aria-hidden="true">AL<span></span></span><span class="brand-name">ATTACK LAB<small>SIMULATION CONSOLE</small></span></a>
+      <nav class="top-nav" aria-label="화면 탐색"><a href="#overview">Overview</a><a href="#scenarios">Scenarios</a><a href="#activity">Activity</a></nav>
+      <div class="top-meta"><span class="online-dot" aria-hidden="true"></span><span>CONTROL PANEL</span><span class="header-divider" aria-hidden="true"></span><time id="clock">--:--</time></div>
+    </div>
+  </header>
+
+  <main class="container" id="overview">
+    <section class="page-heading" aria-label="시뮬레이션 개요">
+      <div class="heading-copy"><div class="eyebrow">SECURITY TESTING <span>/</span> WORKSPACE 01</div><h1>공격 시뮬레이션</h1><p>공격 시나리오 실행과 결과 확인을 하나의 화면에서 관리합니다.</p></div>
+      <div class="workspace-mark"><span class="online-dot" aria-hidden="true"></span> SYSTEM STATUS <span class="mark-separator">·</span> {{ '%02d' % (scenarios|selectattr('enabled')|list|length) }} / 07 CONNECTED</div>
+    </section>
+
+    <section class="overview-strip" aria-label="대상 및 실행 정보">
+      <div class="overview-cell"><span class="cell-label">TARGET SCOPE</span><strong class="target-text">표면마다 개별 지정</strong><span class="cell-caption">공격 표면 등록 시 대상 호스트와 테스트 권한 확인을 함께 입력합니다.</span></div>
+      <div class="overview-cell"><span class="cell-label">AVAILABLE SCENARIOS</span><div class="cell-value">{{ '%02d' % (scenarios|selectattr('enabled')|list|length) }} <span class="muted-value">/ 07</span></div><span class="cell-caption">{{ scenarios|selectattr('enabled')|map(attribute='name')|join(' · ') }} 실행 가능</span></div>
+      <div class="overview-cell"><span class="cell-label">TOOL STATUS</span><div class="cell-status" id="toolStatus">확인 중</div><span class="cell-caption" id="toolDesc">도구 연결 상태를 확인하고 있습니다.</span></div>
+      <div class="overview-cell"><span class="cell-label">RECORDED RUNS</span><div class="cell-value" id="runsCount">00</div><span class="cell-caption">현재 세션 기준</span></div>
+    </section>
+
+    <section class="scenarios-section" id="scenarios" aria-label="공격 시나리오">
+      <div class="section-title"><div><div class="section-eyebrow">01 / SCENARIO LIBRARY</div><h2>테스트 시나리오 <span class="count-badge">07</span></h2></div><p>항목을 선택해 실행 조건과 관찰 지점을 확인하세요.</p></div>
+      <div class="scenarios-grid">
+        <div class="scenario-list" aria-label="시나리오 선택">
+          <div class="list-caption"><span>SCENARIO</span><span>STATE</span></div>
+          {% for s in scenarios %}
+          <button type="button" class="scenario-row {% if loop.first %}selected{% endif %}" data-select="{{ s.id }}" data-name="{{ s.name }}" data-index="{{ s.index }}" data-tool="{{ s.tool }}" data-layer="{{ s.layer }}" data-description="{{ s.description }}" data-detector="{{ s.detector }}" data-enabled="{{ 'true' if s.enabled else 'false' }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">
+            <span class="row-index">{{ s.index }}</span><span class="row-copy"><strong>{{ s.name }}</strong><small>{{ s.tool }}</small></span><span class="row-state {% if s.enabled %}is-ready{% endif %}" id="status-{{ s.id }}">{% if s.enabled %}READY{% else %}PLANNED{% endif %}</span><span class="row-chevron" aria-hidden="true">›</span>
+          </button>
+          {% endfor %}
+          <div class="list-bottom"><span class="online-dot"></span> 등록된 7가지 공격 벡터 <span class="list-count">{{ scenarios|selectattr('enabled')|list|length }} ACTIVE · {{ scenarios|rejectattr('enabled')|list|length }} PLANNED</span></div>
+        </div>
+        <aside class="scenario-detail" aria-label="선택된 시나리오 상세">
+          <div class="detail-topline"><span id="detailIndex">SCENARIO / 01</span><span class="detail-badge" id="detailBadge">READY TO RUN</span></div>
+          <div class="detail-main"><div class="detail-kicker" id="detailLayer">WEB / DATABASE</div><h3 id="detailName">SQL Injection</h3><p id="detailDescription">상품 조회 API의 SQL 삽입 취약점을 검사합니다.</p>
+            <div class="detail-facts"><div><span>EXECUTION TOOL</span><strong id="detailTool">SQLmap</strong></div><div><span>OBSERVATION</span><strong id="detailDetector">WAF · 앱 로그</strong></div><div><span>TEST MODE</span><strong id="detailMode">CONFIGURED</strong></div></div>
+          </div>
+          <div class="detail-bottom"><button class="primary-action" id="runSelected" type="button"><span id="runLabel">SQL Injection 실행</span><span id="actionArrow" aria-hidden="true">↗</span></button><p id="actionHint">등록된 공격 표면을 선택해 검사를 실행합니다.</p></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="surfaces-section" id="surfaces" aria-label="공격 표면 관리">
+      <div class="section-title"><div><div class="section-eyebrow">02 / TARGET MANAGEMENT</div><h2><span id="surfaceScenarioName">SQL Injection</span> 공격 표면 <span class="count-badge" id="surfaceCount">01</span></h2></div><p id="surfaceSectionDesc">API 경로와 검사 파라미터를 등록하고 관리합니다.</p></div>
+      <div class="surface-shell">
+        <div class="surface-topline"><div><strong id="surfaceScopeLabel">대상 설정</strong><p id="surfaceScopeDesc">현재 연결 대상에서 검사할 API 경로와 파라미터를 설정합니다.</p></div><div class="surface-topline-actions"><input type="file" id="importFile" accept="application/json,.json" hidden><button type="button" class="outline-btn" id="importSurfaces">파일에서 가져오기</button><button type="button" class="outline-btn" id="addSurface">+ 공격 표면 추가</button></div></div>
+        <div class="surface-table-wrap"><table class="surface-table"><thead><tr><th scope="col"><input id="selectAll" type="checkbox" aria-label="모든 공격 표면 선택"></th><th scope="col">공격 표면</th><th scope="col">상세 정보</th><th scope="col">관리</th></tr></thead><tbody id="surfaceRows"><tr><td colspan="4">공격 표면을 불러오는 중...</td></tr></tbody></table></div>
+        <div class="surface-bottom"><p id="surfaceHint" role="status">대상을 선택한 다음 검사를 시작하세요.</p><div class="surface-actions"><button type="button" class="outline-btn" id="runSelectedSurfaces">선택 대상 실행</button><button type="button" class="solid-btn" id="runAllSurfaces">전체 순차 실행</button></div></div>
+      </div>
+      <form id="surfaceForm" class="surface-editor" hidden autocomplete="off"><div class="editor-title"><strong id="editorTitle">공격 표면 추가</strong><button type="button" id="cancelSurface" class="text-btn">취소 ×</button></div><div class="editor-grid" id="editorFields"></div><div class="editor-footer"><span id="editorNote">등록한 API 경로가 실제로 존재해야 합니다.</span><button type="submit" class="solid-btn" id="saveSurface">저장</button></div></form>
+    </section>
+
+    <section class="activity-section" id="activity" aria-label="실행 로그 및 기록">
+      <div class="section-title"><div><div class="section-eyebrow">03 / EXECUTION &amp; LOGS</div><h2>실행 현황</h2></div><button type="button" class="refresh-button" id="refreshBtn"><span aria-hidden="true">↻</span> 새로고침</button></div>
+      <div class="activity-grid">
+        <section class="console-section" aria-label="실시간 실행 로그"><div class="console-header"><div class="console-title"><span class="console-icon" aria-hidden="true">&gt;_</span> Execution log</div><span class="console-state"><span id="liveDot"></span><span id="liveState">IDLE</span></span></div><div class="console-subhead"><span id="jobName">sqlmap / no active job</span><button type="button" id="clearBtn">CLEAR</button><button type="button" id="copyBtn">COPY LOG</button></div><pre id="console" aria-live="polite">$ 연결 대상의 응답 상태를 확인하세요.
+$ SQL Injection을 선택하고 [실행]을 누르면 로그가 표시됩니다.</pre><div class="console-footer"><span id="resultSummary">실행 결과 대기 중</span><span id="executionId">NO ACTIVE RUN</span></div></section>
+        <section class="history-section" aria-label="최근 실행 기록"><div class="history-heading"><strong>최근 실행 기록</strong><span>LAST 15</span></div><div class="history-list" id="history"><p class="empty">아직 실행 기록이 없습니다.</p></div><div class="history-footer">실행 로그는 <code>logs/</code>에 저장됩니다.<br>TXT·JSON 파일은 유지되지만 화면의 이력은 서버 재시작 시 초기화됩니다.</div></section>
+      </div>
+    </section>
+    <footer class="footer"><span>ATTACK LAB <span class="footer-divider">/</span> SIMULATION CONSOLE</span><span>ATTACK SIMULATOR · v0.8</span></footer>
+  </main>
+</body>
+</html>
+

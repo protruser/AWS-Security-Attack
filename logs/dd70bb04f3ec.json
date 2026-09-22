@@ -1,0 +1,14 @@
+{
+  "id": "dd70bb04f3ec",
+  "batch_id": "2c1f6a5c132a",
+  "scenario": "xss",
+  "surface_id": "item-xss",
+  "surface_name": "상품 상세 조회 XSS 점검",
+  "target": "http://127.0.0.1:5000/item?id=1",
+  "status": "completed",
+  "started_at": "2026-09-22T02:20:28+00:00",
+  "finished_at": "2026-09-22T02:20:51+00:00",
+  "summary": "검사 완료 · XSS 미확인",
+  "vulnerability_found": false,
+  "exit_code": 0
+}

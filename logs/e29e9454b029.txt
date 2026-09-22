@@ -1,0 +1,6 @@
+[2026-09-22T03:21:28+00:00] 루트 경로 탐색 · http://127.0.0.1:5000/
+logout               (Status: 405) [Size: 772]
+login                (Status: 200) [Size: 1112]
+orders               (Status: 401) [Size: 748]
+products             (Status: 200) [Size: 2964]
+search               (Status: 200) [Size: 2966]

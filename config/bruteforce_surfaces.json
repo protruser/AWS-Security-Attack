@@ -1,0 +1,14 @@
+[
+  {
+    "name": "로그인",
+    "method": "POST",
+    "endpoint": "/login",
+    "user_field": "username",
+    "pass_field": "password",
+    "failure_string": "올바르지 않습니다.",
+    "wordlist": "quick",
+    "id": "1a608930f1b9",
+    "base_url": "http://127.0.0.1:5000",
+    "authorized": true
+  }
+]

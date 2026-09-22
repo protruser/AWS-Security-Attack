@@ -1,0 +1,20 @@
+[
+  {
+    "name": "상품 검색",
+    "base_url": "http://127.0.0.1:5000",
+    "method": "GET",
+    "endpoint": "/search",
+    "parameter": "keyword",
+    "test_value": "phone",
+    "authorized": true
+  },
+  {
+    "name": "로그인 폼",
+    "base_url": "http://127.0.0.1:5000",
+    "method": "POST",
+    "endpoint": "/login",
+    "parameter": "username",
+    "test_value": "admin",
+    "authorized": true
+  }
+]

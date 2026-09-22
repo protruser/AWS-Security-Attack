@@ -1,0 +1,20 @@
+[
+  {
+    "name": "웹 포트",
+    "host": "127.0.0.1",
+    "ports": "80,443",
+    "authorized": true
+  },
+  {
+    "name": "DB 포트",
+    "host": "127.0.0.1",
+    "ports": "3306,5432",
+    "authorized": true
+  },
+  {
+    "name": "전체 상위 포트",
+    "host": "127.0.0.1",
+    "ports": "1-1024",
+    "authorized": true
+  }
+]

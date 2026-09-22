@@ -1,0 +1,14 @@
+{
+  "id": "8563473eabe5",
+  "batch_id": "9142462067f5",
+  "scenario": "directory",
+  "surface_id": "root-common",
+  "surface_name": "루트 경로 탐색",
+  "target": "http://127.0.0.1:5000/",
+  "status": "completed",
+  "started_at": "2026-09-22T00:23:01+00:00",
+  "finished_at": "2026-09-22T00:23:07+00:00",
+  "summary": "검사 완료 · 발견된 경로 없음",
+  "vulnerability_found": false,
+  "exit_code": 0
+}

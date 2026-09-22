@@ -1,0 +1,16 @@
+[
+  {
+    "name": "관리자 경로 탐색",
+    "base_url": "http://127.0.0.1:5000",
+    "base_path": "/admin",
+    "wordlist": "small",
+    "authorized": true
+  },
+  {
+    "name": "API 경로 탐색",
+    "base_url": "http://127.0.0.1:5000",
+    "base_path": "/api",
+    "wordlist": "common",
+    "authorized": true
+  }
+]

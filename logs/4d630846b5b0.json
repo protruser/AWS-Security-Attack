@@ -1,0 +1,10 @@
+{
+  "id": "4d630846b5b0",
+  "scenario": "sqli",
+  "status": "completed",
+  "started_at": "2026-09-21T06:16:32+00:00",
+  "finished_at": "2026-09-21T06:16:33+00:00",
+  "target": "http://127.0.0.1:5000/item?id=1",
+  "summary": "검사 완료 · 취약점 미확인",
+  "exit_code": 0
+}
