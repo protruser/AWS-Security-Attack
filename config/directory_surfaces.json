@@ -2,9 +2,9 @@
   {
     "name": "루트 경로 탐색",
     "base_path": "/",
-    "wordlist": "small",
+    "wordlist": "common",
     "id": "c9d40715a576",
-    "base_url": "http://127.0.0.1:5000",
+    "base_url": "http://wonny-sec-shop-alb-718900494.ap-northeast-2.elb.amazonaws.com",
     "authorized": true
   }
 ]

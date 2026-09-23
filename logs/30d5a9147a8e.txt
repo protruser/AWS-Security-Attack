@@ -1,6 +1,0 @@
-[2026-09-22T06:01:14+00:00] 자격증명 해킹 · profile=tom · aws sts get-caller-identity
-{
-    "UserId": "AIDA3TCWE4Z3DC52VTHS2",
-    "Account": "796897109622",
-    "Arn": "arn:aws:iam::796897109622:user/tom"
-}

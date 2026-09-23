@@ -6,7 +6,7 @@
     "parameter": "q",
     "test_value": "키보드",
     "id": "9f96e458ac3e",
-    "base_url": "http://127.0.0.1:5000",
+    "base_url": "http://wonny-sec-shop-alb-718900494.ap-northeast-2.elb.amazonaws.com",
     "authorized": true
   }
 ]

@@ -1,1 +1,0 @@
-http://127.0.0.1:5000/search?q=%ED%82%A4%EB%B3%B4%EB%93%9C (GET)  # /usr/bin/sqlmap -u http://127.0.0.1:5000/search?q=%ED%82%A4%EB%B3%B4%EB%93%9C -p q --batch --level=1 --risk=1 --threads=1 --technique=BEU --timeout=5 --retries=0 --flush-session --disable-coloring --output-dir /home/kali/attack-simulator/attack-simulator-dashboard/logs/sqlmap-work

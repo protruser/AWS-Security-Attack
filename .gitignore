@@ -1,0 +1,12 @@
+# 공격 실행 로그 — 대상 주소·페이로드·AWS 자격증명 출력(계정 ID/ARN/키 ID) 등
+# 민감정보가 포함되므로 git에 올리지 않는다.
+logs/
+
+# Python 가상환경 / 캐시
+.venv/
+__pycache__/
+*.pyc
+
+# AWS 자격증명이 로컬 config에 생기는 경우 대비
+.aws/
+*.credentials

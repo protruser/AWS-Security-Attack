@@ -1,2 +1,0 @@
-Target URL,Place,Parameter,Technique(s),Note(s)
-http://127.0.0.1:5000/search?q=phone,GET,q,U,false positive or unexploitable

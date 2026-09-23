@@ -8,7 +8,7 @@
     "failure_string": "올바르지 않습니다.",
     "wordlist": "quick",
     "id": "1a608930f1b9",
-    "base_url": "http://127.0.0.1:5000",
+    "base_url": "http://wonny-sec-shop-alb-718900494.ap-northeast-2.elb.amazonaws.com",
     "authorized": true
   }
 ]
