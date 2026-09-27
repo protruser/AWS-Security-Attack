@@ -353,9 +353,30 @@ def command_for_credential(surface: dict, job_id: str) -> tuple[list[str], str]:
 def command_for_directory(surface: dict, job_id: str) -> tuple[list[str], str]:
     url = surface['base_url'] + surface['base_path']
     wordlist = DIRECTORY_WORDLISTS[surface['wordlist']]
+    # WAF 뒤 서버는 없는 경로에도 403(차단)을 준다. gobuster 는 "없는 경로 = 404" 를
+    # 전제로 하므로, 이 경우 시작 직후 "wildcard 응답" 이라며 멈춘다. 차단 상태코드를
+    # 블랙리스트에 넣어 없는 경로로 취급하게 하면, 실제로 200 등으로 존재하는 경로만 잡는다.
+    blacklist = _gobuster_blacklist_flag()
     cmd = [shutil.which('gobuster') or 'gobuster', 'dir', '-u', url, '-w', wordlist, '-k',
-           '-t', '10', '--timeout', '5s', '-q', '--no-progress', '--no-error', '--no-color']
+           *blacklist, '-t', '10', '--timeout', '5s', '-q', '--no-progress', '--no-error', '--no-color']
     return cmd, url
+
+
+def _gobuster_blacklist_flag() -> list[str]:
+    """gobuster 버전에 맞는 '상태코드 블랙리스트' 플래그로 403·404 를 없는 경로 취급한다.
+
+    3.6+ 는 --status-codes-blacklist, 그 이전은 -b 를 쓴다. 도움말에서 지원 여부를 보고 고른다.
+    """
+    binary = shutil.which('gobuster') or 'gobuster'
+    codes = '403,404'
+    try:
+        help_text = subprocess.run([binary, 'dir', '--help'], capture_output=True, text=True,
+                                   timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ['-b', codes]
+    if '--status-codes-blacklist' in help_text:
+        return ['--status-codes-blacklist', codes]
+    return ['-b', codes]
 
 
 def command_for_portscan(surface: dict, job_id: str) -> tuple[list[str], str]:
