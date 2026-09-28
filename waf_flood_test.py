@@ -23,6 +23,7 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
+import urllib3
 
 # ── 부하 상한 (대시보드 검증기와 동일하게 고정) ─────────
 MAX_CONCURRENCY = 50   # 동시 워커 수 상한
@@ -35,11 +36,11 @@ lock = threading.Lock()
 stop_flag = threading.Event()
 
 
-def send_one(url: str, timeout: float):
+def send_one(url: str, timeout: float, verify: bool):
     """요청 1건 전송 후 상태코드를 집계."""
     global errors
     try:
-        r = requests.get(url, timeout=timeout)
+        r = requests.get(url, timeout=timeout, verify=verify)
         with lock:
             counter[r.status_code] += 1
     except requests.RequestException:
@@ -47,10 +48,10 @@ def send_one(url: str, timeout: float):
             errors += 1
 
 
-def worker(url: str, timeout: float):
+def worker(url: str, timeout: float, verify: bool):
     """stop_flag가 설정될 때까지 계속 요청을 보내는 워커."""
     while not stop_flag.is_set():
-        send_one(url, timeout)
+        send_one(url, timeout, verify)
 
 
 def reporter(interval: float):
@@ -86,6 +87,8 @@ def main():
                    help="요청 타임아웃(초) (기본 5)")
     p.add_argument("-i", "--interval", type=float, default=2,
                    help="중간 보고 주기(초) (기본 2)")
+    p.add_argument("-k", "--insecure", action="store_true",
+                   help="HTTPS 인증서 검증을 건너뜁니다 (자체 서명/사설 CA 대상용). http 대상에는 영향 없음.")
     args = p.parse_args()
 
     # 상한 적용: 이 도구는 방어 규칙 검증용이므로 무제한 플러드로 쓰이지 않도록 고정 상한을 강제한다.
@@ -96,8 +99,13 @@ def main():
               f"지속 {args.duration}->{duration}s 로 제한합니다 "
               f"(최대 {MAX_CONCURRENCY} / {MAX_DURATION}s).")
 
+    # --insecure면 인증서 검증을 끈다. https 자체서명 대상용이며, http 대상에는 영향이 없다.
+    verify = not args.insecure
+    if args.insecure:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
     print(f"대상   : {args.url}")
-    print(f"동시성 : {concurrency}  |  지속: {duration}s")
+    print(f"동시성 : {concurrency}  |  지속: {duration}s  |  인증서 검증: {'off' if args.insecure else 'on'}")
     print("-" * 60)
 
     rep = threading.Thread(target=reporter, args=(args.interval,), daemon=True)
@@ -106,7 +114,7 @@ def main():
     start = time.time()
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
         for _ in range(concurrency):
-            pool.submit(worker, args.url, args.timeout)
+            pool.submit(worker, args.url, args.timeout, verify)
         time.sleep(duration)
         stop_flag.set()
 
@@ -121,10 +129,12 @@ def main():
     print(f"  상태코드 분포: {dict(counter)}")
     print(f"  연결 오류   : {errors}")
     print("-" * 60)
+    # 이모지 대신 ASCII 태그를 쓴다: 일부 콘솔(예: Windows cp949)에서 이모지가
+    # 인코딩 오류로 출력을 막으면, 탐지 판정에 쓰는 아래 문자열까지 유실된다.
     if blocked > 0:
-        print(f"✅ WAF 탐지 확인: 차단 응답(403/429) {blocked}건 발생")
+        print(f"[탐지] WAF 탐지 확인: 차단 응답(403/429) {blocked}건 발생")
     else:
-        print("⚠️ 차단 응답 없음 → rate limit 미도달. "
+        print("[미도달] 차단 응답 없음 → rate limit 미도달. "
               "상한 내에서 -c(동시성) 또는 -d(시간)를 늘려 다시 시도하십시오.")
 
 
