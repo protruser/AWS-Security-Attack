@@ -8,6 +8,7 @@ import shutil
 import signal
 import socket
 import subprocess
+import sys
 import threading
 import time
 import uuid
@@ -35,6 +36,12 @@ MAX_BATCH = 10
 MAX_LOG_CHARS = 100_000
 MAX_PARSE_CHARS = 2_000_000  # Separate, larger cap for the structured-output buffer used to detect findings.
 MAX_PORTSCAN_PORTS = 2000
+# WAF rate-limit 시나리오는 나머지 도구처럼 "제한된 프로브"로 다룬다: 무제한 플러드가
+# 아니라, 자기 소유 대상의 rate-based rule이 켜지는지만 확인하도록 동시성·시간에 상한을 둔다.
+# (아래 값은 번들 스크립트 waf_flood_test.py 안의 상한과 동일하게 맞춰져 있어야 한다.)
+MAX_WAF_CONCURRENCY = 50
+MAX_WAF_DURATION = 60
+WAF_SCRIPT = BASE / 'waf_flood_test.py'
 TIMEOUT_SECONDS = 120
 MAX_JOBS_IN_MEMORY = 200
 MAX_BATCHES_IN_MEMORY = 50
@@ -74,6 +81,7 @@ SCENARIOS = [
     {'id': 'portscan', 'index': '05', 'name': 'Port Scan', 'tool': 'Nmap', 'layer': 'NETWORK / EC2', 'description': '대상 네트워크의 포트 탐색 패턴을 관찰합니다.', 'detector': 'VPC Flow · GuardDuty', 'enabled': True},
     {'id': 'credential', 'index': '06', 'name': 'Credential Misuse', 'tool': 'AWS CLI', 'layer': 'IAM / CLOUD', 'description': '자격증명의 API 사용 이력과 이상 징후를 확인합니다.', 'detector': 'CloudTrail · GuardDuty', 'enabled': True},
     {'id': 'image', 'index': '07', 'name': 'Vulnerable Image', 'tool': 'Trivy', 'layer': 'CONTAINER / K3S', 'description': '컨테이너 이미지의 알려진 취약점을 스캔합니다.', 'detector': 'Trivy · Inspector', 'enabled': True},
+    {'id': 'waf', 'index': '08', 'name': 'WAF Rate Limit', 'tool': 'WAF Flood', 'layer': 'EDGE / WAF', 'description': '제한된 부하로 WAF rate-based rule의 차단(403/429) 동작을 검증합니다.', 'detector': 'WAF · ALB 로그', 'enabled': True},
 ]
 
 lock = threading.RLock()
@@ -287,6 +295,34 @@ def valid_image_surface(data: dict) -> dict:
     return {'name': name.strip(), 'image': image}
 
 
+def _valid_bounded_int(value, field: str, lo: int, hi: int) -> int:
+    # Editor form / bulk import may send the number as a string; accept both.
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f'{field}은(는) 정수여야 합니다.')
+    if not lo <= n <= hi:
+        raise ValueError(f'{field}은(는) {lo}~{hi} 범위여야 합니다.')
+    return n
+
+
+def valid_waf_surface(data: dict) -> dict:
+    if not isinstance(data, dict):
+        raise ValueError('요청 형식이 올바르지 않습니다.')
+    name = data.get('name', '')
+    path = data.get('path', '/')
+    base_url = valid_base_url(data)
+    require_authorized(data)
+    if not isinstance(name, str) or not 1 <= len(name.strip()) <= 48:
+        raise ValueError('이름은 1~48자여야 합니다.')
+    if not isinstance(path, str) or not re.fullmatch(r'/[A-Za-z0-9_/-]{0,95}', path) or '//' in path or '..' in path:
+        raise ValueError('경로는 /처럼 경로만 입력하세요. 전체 URL, .., //는 사용할 수 없습니다.')
+    concurrency = _valid_bounded_int(data.get('concurrency'), '동시성', 1, MAX_WAF_CONCURRENCY)
+    duration = _valid_bounded_int(data.get('duration'), '지속 시간', 1, MAX_WAF_DURATION)
+    return {'name': name.strip(), 'base_url': base_url, 'path': path,
+            'concurrency': concurrency, 'duration': duration, 'authorized': True}
+
+
 # ---------------------------------------------------------------------------
 # Per-scenario command builders — each returns (subprocess argv, display target)
 # ---------------------------------------------------------------------------
@@ -392,6 +428,16 @@ def command_for_image(surface: dict, job_id: str) -> tuple[list[str], str]:
     return cmd, image
 
 
+def command_for_waf(surface: dict, job_id: str) -> tuple[list[str], str]:
+    url = surface['base_url'] + surface['path']
+    # Run the bundled script with the current interpreter (sys.executable) so it
+    # uses the same venv where `requests` is installed. The script also clamps
+    # -c/-d to the same MAX_WAF_* ceilings as a second line of defense.
+    cmd = [sys.executable, '-u', str(WAF_SCRIPT), url,
+           '-c', str(surface['concurrency']), '-d', str(surface['duration'])]
+    return cmd, f'{url} (c={surface["concurrency"]}, d={surface["duration"]}s)'
+
+
 # ---------------------------------------------------------------------------
 # Per-scenario result detection — each returns (finding_found, summary)
 # ---------------------------------------------------------------------------
@@ -476,6 +522,15 @@ def detect_image(surface: dict, output: str, returncode: int, job_id: str) -> tu
     return count > 0, (f'취약점 {count}건 발견 · Trivy 기준' if count else '검사 완료 · 취약점 없음')
 
 
+def detect_waf(surface: dict, output: str, returncode: int, job_id: str) -> tuple[bool, str]:
+    # The bundled script prints a final "차단 응답(403/429) N건 발생" line when the
+    # WAF's rate-based rule kicked in. Its absence means the limit wasn't reached.
+    match = re.search(r'차단 응답\(403/429\)\s*(\d+)건 발생', output)
+    if match:
+        return True, f'WAF rate limit 차단 확인 · 403/429 {match.group(1)}건 · 도구 기준'
+    return False, '검사 완료 · 차단 응답(rate limit) 미도달'
+
+
 def migrate_base_url_surfaces(surfaces: list[dict]) -> tuple[list[dict], bool]:
     # Surfaces saved before per-surface targets existed have neither field;
     # backfill them so old registrations keep working without edits.
@@ -558,6 +613,15 @@ SCENARIO_REGISTRY = {
         'defaults': [{'id': 'nginx-sample', 'name': '예시 웹 서버 이미지', 'image': 'nginx:1.25'}],
         'validate': valid_image_surface, 'command': command_for_image, 'detect': detect_image,
         'tool_bin': 'trivy', 'missing_msg': 'Trivy가 설치되지 않았습니다. sudo apt install trivy -y',
+    },
+    'waf': {
+        'file': CONFIG_DIR / 'waf_surfaces.json',
+        # No invented default target: like the credential scenario, the user must
+        # deliberately register their own authorized ALB/WAF endpoint first.
+        'defaults': [],
+        'validate': valid_waf_surface, 'command': command_for_waf, 'detect': detect_waf,
+        'tool_bin': 'python3',
+        'missing_msg': 'python3와 requests 라이브러리가 필요합니다. pip install -r requirements.txt',
     },
 }
 

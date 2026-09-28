@@ -1,0 +1,10 @@
+[
+  {
+    "name": "ALB rate limit 검증",
+    "base_url": "http://your-alb.example.com",
+    "path": "/",
+    "concurrency": 25,
+    "duration": 30,
+    "authorized": true
+  }
+]

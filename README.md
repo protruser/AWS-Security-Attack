@@ -1,6 +1,6 @@
 # Attack Lab — 공격 시뮬레이션 대시보드
 
-7가지 공격 시나리오(SQL Injection, XSS, Directory Search, Login Brute Force, Port Scan, Credential Misuse, Vulnerable Image)를 표준 보안 도구로 실행하고 결과를 확인하는 대시보드입니다. 대시보드 자체는 `127.0.0.1:5050`에만 바인딩됩니다.
+8가지 공격 시나리오(SQL Injection, XSS, Directory Search, Login Brute Force, Port Scan, Credential Misuse, Vulnerable Image, WAF Rate Limit)를 표준 보안 도구로 실행하고 결과를 확인하는 대시보드입니다. 대시보드 자체는 `127.0.0.1:5050`에만 바인딩됩니다.
 
 **대상은 시나리오별 공격 표면마다 직접 등록합니다** (더 이상 로컬 앱 하나로 고정되어 있지 않습니다). 등록할 때마다 "이 대상을 테스트할 권한이 있음을 확인합니다" 체크박스에 동의해야 저장됩니다 — 본인이 소유했거나 테스트 권한이 있는 대상만 등록하세요.
 
@@ -24,6 +24,7 @@ pip install -r requirements.txt
 | Port Scan | Nmap | `nmap` |
 | Credential Misuse | AWS CLI | `awscli` |
 | Vulnerable Image | Trivy | `trivy` |
+| WAF Rate Limit | `waf_flood_test.py` (번들 스크립트) | apt 불필요 · `pip install -r requirements.txt`로 `requests` 설치 |
 
 Credential Misuse는 추가로 **본인 소유 AWS 계정의 읽기 전용 테스트 전용 IAM 프로파일**이 필요합니다 (`aws configure --profile <이름>`, `default` 프로파일은 등록 불가).
 
@@ -66,6 +67,7 @@ python3 app.py
 - `POST`는 폼 데이터만 지원하며, JSON 본문은 아직 지원하지 않습니다.
 - Credential Misuse는 읽기 전용 조회(신원 확인, IAM 사용자/역할/액세스 키 목록) 4개로 고정되어 있으며, 리소스 열람이나 변경 작업은 지원하지 않습니다.
 - 대상 등록 시 권한 확인 체크박스는 최소한의 안전장치일 뿐, 실제 테스트 권한 확인 책임은 사용자에게 있습니다.
+- WAF Rate Limit은 대상으로 **실제 HTTP 요청 부하**를 보냅니다. 무제한 플러드가 아니라 rate-based rule 동작을 검증하기 위한 것으로, 동시성(최대 50)과 지속 시간(최대 60초)에 상한이 걸려 있습니다. 반드시 본인이 소유·관리하는 엔드포인트에만 사용하세요.
 
 ## 용어 표기 규칙
 
@@ -73,7 +75,7 @@ python3 app.py
 
 | 용어 | 가리키는 것 | 예 |
 |---|---|---|
-| **도구 (tool)** | 시나리오가 실제로 실행하는 보안 실행 프로그램 | SQLmap, OWASP ZAP, Gobuster, Hydra, Nmap, AWS CLI, Trivy |
+| **도구 (tool)** | 시나리오가 실제로 실행하는 보안 실행 프로그램 | SQLmap, OWASP ZAP, Gobuster, Hydra, Nmap, AWS CLI, Trivy, WAF Flood(번들 스크립트) |
 | **apt 패키지** | `apt install`로 설치하는 시스템 패키지 (도구의 설치 단위, 소문자) | `sqlmap`, `zaproxy`, `gobuster`, `hydra`, `nmap`, `awscli`, `trivy` |
 | **파이썬 라이브러리** | `pip install`로 설치하는 파이썬 의존성 (`requirements.txt`) | Flask |
 | **시나리오 (scenario)** | 하나의 공격 유형과 그에 매핑된 도구 | SQL Injection → SQLmap |

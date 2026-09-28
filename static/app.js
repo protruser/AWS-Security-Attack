@@ -140,6 +140,25 @@ const SCENARIOS_META = {
     ],
     detail: (s) => s.image,
   },
+  waf: {
+    tool: 'python3',
+    scopeLabel: '대상 설정',
+    scopeDesc: '본인 소유 ALB/WAF 엔드포인트로 제한된 부하를 보내 rate-based rule의 차단(403/429)을 검증합니다.',
+    sectionDesc: '대상 URL, 경로와 부하 강도(동시성·지속시간)를 등록하고 관리합니다.',
+    editorNote: '무제한 플러드가 아닌 방어 규칙 검증용입니다. 동시성 최대 50, 지속 최대 60초로 제한됩니다. 반드시 본인이 소유·관리하는 대상만 등록하세요.',
+    addLabel: '+ 공격 표면 추가',
+    fields: [
+      {key: 'name', label: '표면 이름', maxlength: 48, required: true, placeholder: 'ALB rate limit 검증'},
+      {key: 'base_url', label: '대상 URL', maxlength: 128, required: true, placeholder: 'http://your-alb.example.com'},
+      {key: 'path', label: '경로', maxlength: 96, required: true, placeholder: '/'},
+      {key: 'concurrency', label: '동시성', type: 'select',
+        options: [['10', '10 (약)'], ['25', '25 (중)'], ['50', '50 (강, 최대)']]},
+      {key: 'duration', label: '지속 시간(초)', type: 'select',
+        options: [['15', '15초'], ['30', '30초'], ['60', '60초 (최대)']]},
+      AUTH_FIELD,
+    ],
+    detail: (s) => `${s.base_url}${s.path} · c=${s.concurrency}, d=${s.duration}s`,
+  },
 };
 
 async function api(url, options = {}) {

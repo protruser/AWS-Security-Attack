@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0f1725">
   <title>Attack Lab — Simulation Console</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='16-custom-target') }}">
-  <script src="{{ url_for('static', filename='app.js', v='16-custom-target') }}" defer></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='17-waf') }}">
+  <script src="{{ url_for('static', filename='app.js', v='17-waf') }}" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -20,18 +20,18 @@
   <main class="container" id="overview">
     <section class="page-heading" aria-label="시뮬레이션 개요">
       <div class="heading-copy"><div class="eyebrow">SECURITY TESTING <span>/</span> WORKSPACE 01</div><h1>공격 시뮬레이션</h1><p>공격 시나리오 실행과 결과 확인을 하나의 화면에서 관리합니다.</p></div>
-      <div class="workspace-mark"><span class="online-dot" aria-hidden="true"></span> SYSTEM STATUS <span class="mark-separator">·</span> {{ '%02d' % (scenarios|selectattr('enabled')|list|length) }} / 07 CONNECTED</div>
+      <div class="workspace-mark"><span class="online-dot" aria-hidden="true"></span> SYSTEM STATUS <span class="mark-separator">·</span> {{ '%02d' % (scenarios|selectattr('enabled')|list|length) }} / 08 CONNECTED</div>
     </section>
 
     <section class="overview-strip" aria-label="대상 및 실행 정보">
       <div class="overview-cell"><span class="cell-label">TARGET SCOPE</span><strong class="target-text">표면마다 개별 지정</strong><span class="cell-caption">공격 표면 등록 시 대상 호스트와 테스트 권한 확인을 함께 입력합니다.</span></div>
-      <div class="overview-cell"><span class="cell-label">AVAILABLE SCENARIOS</span><div class="cell-value">{{ '%02d' % (scenarios|selectattr('enabled')|list|length) }} <span class="muted-value">/ 07</span></div><span class="cell-caption">{{ scenarios|selectattr('enabled')|map(attribute='name')|join(' · ') }} 실행 가능</span></div>
+      <div class="overview-cell"><span class="cell-label">AVAILABLE SCENARIOS</span><div class="cell-value">{{ '%02d' % (scenarios|selectattr('enabled')|list|length) }} <span class="muted-value">/ 08</span></div><span class="cell-caption">{{ scenarios|selectattr('enabled')|map(attribute='name')|join(' · ') }} 실행 가능</span></div>
       <div class="overview-cell"><span class="cell-label">TOOL STATUS</span><div class="cell-status" id="toolStatus">확인 중</div><span class="cell-caption" id="toolDesc">도구 연결 상태를 확인하고 있습니다.</span></div>
       <div class="overview-cell"><span class="cell-label">RECORDED RUNS</span><div class="cell-value" id="runsCount">00</div><span class="cell-caption">현재 세션 기준</span></div>
     </section>
 
     <section class="scenarios-section" id="scenarios" aria-label="공격 시나리오">
-      <div class="section-title"><div><div class="section-eyebrow">01 / SCENARIO LIBRARY</div><h2>테스트 시나리오 <span class="count-badge">07</span></h2></div><p>항목을 선택해 실행 조건과 관찰 지점을 확인하세요.</p></div>
+      <div class="section-title"><div><div class="section-eyebrow">01 / SCENARIO LIBRARY</div><h2>테스트 시나리오 <span class="count-badge">08</span></h2></div><p>항목을 선택해 실행 조건과 관찰 지점을 확인하세요.</p></div>
       <div class="scenarios-grid">
         <div class="scenario-list" aria-label="시나리오 선택">
           <div class="list-caption"><span>SCENARIO</span><span>STATE</span></div>
@@ -40,7 +40,7 @@
             <span class="row-index">{{ s.index }}</span><span class="row-copy"><strong>{{ s.name }}</strong><small>{{ s.tool }}</small></span><span class="row-state {% if s.enabled %}is-ready{% endif %}" id="status-{{ s.id }}">{% if s.enabled %}READY{% else %}PLANNED{% endif %}</span><span class="row-chevron" aria-hidden="true">›</span>
           </button>
           {% endfor %}
-          <div class="list-bottom"><span class="online-dot"></span> 등록된 7가지 공격 벡터 <span class="list-count">{{ scenarios|selectattr('enabled')|list|length }} ACTIVE · {{ scenarios|rejectattr('enabled')|list|length }} PLANNED</span></div>
+          <div class="list-bottom"><span class="online-dot"></span> 등록된 8가지 공격 벡터<span class="list-count">{{ scenarios|selectattr('enabled')|list|length }} ACTIVE · {{ scenarios|rejectattr('enabled')|list|length }} PLANNED</span></div>
         </div>
         <aside class="scenario-detail" aria-label="선택된 시나리오 상세">
           <div class="detail-topline"><span id="detailIndex">SCENARIO / 01</span><span class="detail-badge" id="detailBadge">READY TO RUN</span></div>
