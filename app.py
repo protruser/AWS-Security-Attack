@@ -433,8 +433,10 @@ def command_for_waf(surface: dict, job_id: str) -> tuple[list[str], str]:
     # Run the bundled script with the current interpreter (sys.executable) so it
     # uses the same venv where `requests` is installed. The script also clamps
     # -c/-d to the same MAX_WAF_* ceilings as a second line of defense.
+    # Always pass --insecure, mirroring how the Gobuster scenario always passes
+    # -k: lab targets often use self-signed certs, and it's a no-op on http.
     cmd = [sys.executable, '-u', str(WAF_SCRIPT), url,
-           '-c', str(surface['concurrency']), '-d', str(surface['duration'])]
+           '-c', str(surface['concurrency']), '-d', str(surface['duration']), '--insecure']
     return cmd, f'{url} (c={surface["concurrency"]}, d={surface["duration"]}s)'
 
 
