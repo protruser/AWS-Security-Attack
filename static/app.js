@@ -7,11 +7,17 @@ let surfaces = [];
 let selectedIds = new Set();
 let editingId = null;
 let activeBatch = null;
-let batchPoll = null;
-let pollFailures = 0;
 const MAX_POLL_FAILURES = 3;
 let toolStatus = {};
 let surfacesLoading = false;
+// Attack-results panel state: resultJobs accumulates the jobs of the current run
+// session (one scenario, or all of them via runningAll) so their findings can be
+// shown together instead of only the last streamed log.
+let runningAll = false;
+let resultJobs = [];
+// scenario id -> {index, name, tool}, read off the scenario buttons rendered by Jinja.
+const scenarioInfo = {};
+rows.forEach(r => { scenarioInfo[r.dataset.select] = {index: r.dataset.index, name: r.dataset.name, tool: r.dataset.tool}; });
 const AUTH_FIELD = {key: 'authorized', label: '테스트 권한 확인', type: 'checkbox',
   checkboxLabel: '이 대상을 테스트할 권한이 있음을 확인합니다', required: true};
 
@@ -172,6 +178,7 @@ async function api(url, options = {}) {
 
 function notice(text) { $('surfaceHint').textContent = text; }
 function active() { return Boolean(activeBatch); }
+function busy() { return active() || runningAll; }
 function currentMeta() { return SCENARIOS_META[selectedScenario?.dataset.select]; }
 
 function renderScenario(row) {
@@ -223,7 +230,7 @@ function actionButton(text, css, handler) {
   button.type = 'button';
   button.className = css;
   button.textContent = text;
-  button.disabled = active();
+  button.disabled = busy();
   button.addEventListener('click', handler);
   return button;
 }
@@ -231,9 +238,10 @@ function actionButton(text, css, handler) {
 function refreshButtons() {
   const meta = currentMeta();
   const toolReady = Boolean(meta && toolStatus[meta.tool]);
-  $('runSelectedSurfaces').disabled = active() || !toolReady || selectedIds.size === 0;
-  $('runAllSurfaces').disabled = active() || !toolReady || surfaces.length === 0 || surfaces.length > 10;
-  $('addSurface').disabled = active() || surfaces.length >= 20;
+  $('runSelectedSurfaces').disabled = busy() || !toolReady || selectedIds.size === 0;
+  $('runAllSurfaces').disabled = busy() || !toolReady || surfaces.length === 0 || surfaces.length > 10;
+  $('addSurface').disabled = busy() || surfaces.length >= 20;
+  $('runAllScenarios').disabled = busy();
   $('selectAll').checked = surfaces.length > 0 && selectedIds.size === surfaces.length;
   $('selectAll').indeterminate = selectedIds.size > 0 && selectedIds.size < surfaces.length;
   $('surfaceCount').textContent = String(surfaces.length).padStart(2, '0');
@@ -387,21 +395,90 @@ $('cancelSurface').addEventListener('click', () => { $('surfaceForm').hidden = t
 $('selectAll').addEventListener('change', (e) => { selectedIds = e.target.checked ? new Set(surfaces.map(s => s.id)) : new Set(); renderSurfaces(); });
 
 async function start(ids) {
-  if (active()) return;
+  if (busy()) return;
   if (ids.length > 10) { notice('전체 실행은 한 번에 10개까지 지원합니다. 대상을 선택해서 실행하세요.'); return; }
   const scenario = selectedScenario.dataset.select;
+  resultJobs = [];
+  renderResults();
+  setResultsProgress(`${scenarioInfo[scenario]?.name || scenario} · ${ids.length}개 표면 실행 중`);
+  $('activity').scrollIntoView({behavior: 'smooth', block: 'start'});
   try {
     const result = await api(`/api/run/${scenario}`, {method: 'POST', body: JSON.stringify({surface_ids: ids})});
-    activeBatch = result.batch_id;
     notice(`${ids.length}개의 검사를 순차적으로 실행하고 있습니다.`);
-    $('activity').scrollIntoView({behavior: 'smooth', block: 'start'});
     refreshButtons(); renderSurfaces();
-    await pollBatch();
-    if (activeBatch) batchPoll = setInterval(pollBatch, 1100);
-  } catch (err) { notice(`실행 실패: ${err.message}`); }
+    await awaitBatch(result.batch_id);
+  } catch (err) {
+    notice(`실행 실패: ${err.message}`);
+  } finally {
+    activeBatch = null;
+    refreshButtons(); renderSurfaces(); await refreshHistory();
+  }
+  const positives = resultJobs.filter(j => j.vulnerability_found === true).length;
+  setResultsProgress(`실행 완료 · ${resultJobs.length}건 중 탐지 ${positives}건`);
+  notice(`검사 완료 · 총 ${resultJobs.length}개 중 탐지 ${positives}개. 아래 결과와 기록에서 확인하세요.`);
+}
+
+// Run every scenario that has at least one registered surface and an installed
+// tool, one after another. The backend allows only one batch at a time (the
+// active_batch lock), so we drive it sequentially from here instead of adding a
+// cross-scenario batch to the server.
+async function runAllScenarios() {
+  if (busy()) return;
+  runningAll = true;
+  resultJobs = [];
+  renderResults();
+  refreshButtons(); renderSurfaces();
+  setResultsProgress('실행 가능한 시나리오를 확인하고 있습니다...');
+  $('activity').scrollIntoView({behavior: 'smooth', block: 'start'});
+  let health;
+  try {
+    health = await api('/api/health');
+  } catch (err) {
+    setResultsProgress(`상태 확인 실패: ${err.message}`);
+    notice(`상태 확인 실패: ${err.message}`);
+    runningAll = false; refreshButtons(); renderSurfaces();
+    return;
+  }
+  // Keep the on-screen scenario order (01..08).
+  const todo = [...rows].map(r => r.dataset.select)
+    .filter(id => SCENARIOS_META[id] && health.tools[SCENARIOS_META[id].tool] && (health.surface_counts?.[id] || 0) > 0);
+  if (!todo.length) {
+    setResultsProgress('실행할 시나리오가 없습니다. 표면 등록 여부와 도구 설치 상태를 확인하세요.');
+    notice('실행 가능한 시나리오가 없습니다 (등록된 표면 + 설치된 도구 필요).');
+    runningAll = false; refreshButtons(); renderSurfaces();
+    return;
+  }
+  let done = 0;
+  for (const scenario of todo) {
+    done += 1;
+    const name = scenarioInfo[scenario]?.name || scenario;
+    setResultsProgress(`전체 실행 ${done}/${todo.length} · ${name}`);
+    let ids;
+    try {
+      const surfs = await api(`/api/surfaces/${scenario}`);
+      ids = surfs.slice(0, 10).map(s => s.id);  // one batch caps at 10 surfaces
+    } catch (err) {
+      notice(`${name} 표면 조회 실패: ${err.message}`);
+      continue;
+    }
+    if (!ids.length) continue;
+    try {
+      const result = await api(`/api/run/${scenario}`, {method: 'POST', body: JSON.stringify({surface_ids: ids})});
+      await awaitBatch(result.batch_id);
+    } catch (err) {
+      notice(`${name} 실행 실패: ${err.message}`);
+    }
+  }
+  runningAll = false;
+  activeBatch = null;
+  refreshButtons(); renderSurfaces(); await refreshHistory();
+  const positives = resultJobs.filter(j => j.vulnerability_found === true).length;
+  setResultsProgress(`전체 실행 완료 · ${todo.length}개 시나리오 · ${resultJobs.length}건 중 탐지 ${positives}건`);
+  notice(`전체 시나리오 실행 완료 · ${resultJobs.length}건 중 탐지 ${positives}건.`);
 }
 $('runSelectedSurfaces').addEventListener('click', () => start([...selectedIds]));
 $('runAllSurfaces').addEventListener('click', () => start(surfaces.map(s => s.id)));
+$('runAllScenarios').addEventListener('click', runAllScenarios);
 
 function showJob(job) {
   $('jobName').textContent = `${job.surface_name} / ${job.target} / ${job.id}`;
@@ -417,32 +494,110 @@ function showJob(job) {
   $('liveDot').style.background = ['queued', 'running'].includes(job.status) ? '#63b98a' : '#929e92';
 }
 
-async function pollBatch() {
-  if (!activeBatch) return;
-  const batchId = activeBatch;
-  try {
-    const batch = await api(`/api/batches/${encodeURIComponent(batchId)}`);
-    pollFailures = 0;
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Poll one batch to completion. Streams the current job's log into the console
+// and folds every job (as it progresses) into resultJobs for the results panel.
+// Returns when the batch finishes; throws only after MAX_POLL_FAILURES in a row.
+async function awaitBatch(batchId) {
+  activeBatch = batchId;
+  refreshButtons(); renderSurfaces();
+  let failures = 0;
+  while (true) {
+    let batch;
+    try {
+      batch = await api(`/api/batches/${encodeURIComponent(batchId)}`);
+      failures = 0;
+    } catch (err) {
+      failures += 1;
+      if (failures >= MAX_POLL_FAILURES) {
+        activeBatch = null;
+        notice(`상태 조회 오류: ${err.message}. 서버가 종료되었는지 확인하세요.`);
+        throw err;
+      }
+      notice(`상태 조회 재시도 중... (${failures}/${MAX_POLL_FAILURES}) ${err.message}`);
+      await sleep(1100);
+      continue;
+    }
     const job = batch.jobs.find(j => j.id === batch.current_job_id) || batch.jobs[batch.jobs.length - 1];
-    if (job) showJob(await api(`/api/jobs/${encodeURIComponent(job.id)}`));
-    if (batch.status === 'completed') {
-      clearInterval(batchPoll); batchPoll = null;
-      activeBatch = null;
-      const positives = batch.jobs.filter(j => j.vulnerability_found === true).length;
-      notice(`검사 완료 · 총 ${batch.jobs.length}개 중 탐지 ${positives}개. 결과는 아래 실행 기록에서 확인하세요.`);
-      renderSurfaces(); await refreshHistory();
+    if (job) {
+      try { showJob(await api(`/api/jobs/${encodeURIComponent(job.id)}`)); } catch (_) { /* keep polling */ }
     }
-  } catch (err) {
-    pollFailures += 1;
-    if (pollFailures < MAX_POLL_FAILURES) {
-      notice(`상태 조회 재시도 중... (${pollFailures}/${MAX_POLL_FAILURES}) ${err.message}`);
-      return;
-    }
-    clearInterval(batchPoll); batchPoll = null;
-    activeBatch = null; pollFailures = 0;
-    notice(`상태 조회 오류: ${err.message}. 서버가 종료되었는지 확인하세요. 화면이 잠겨 있으면 새로고침을 눌러 복구할 수 있습니다.`);
-    refreshButtons(); renderSurfaces();
+    mergeResults(batch.jobs);
+    renderResults();
+    if (batch.status === 'completed') { activeBatch = null; return batch; }
+    await sleep(1100);
   }
+}
+
+function mergeResults(jobList) {
+  for (const j of jobList) {
+    const idx = resultJobs.findIndex(r => r.id === j.id);
+    if (idx >= 0) resultJobs[idx] = j; else resultJobs.push(j);
+  }
+}
+
+function setResultsProgress(text) { $('resultsProgress').textContent = text; }
+
+// Map a job to an attack verdict badge. "탐지" only when the tool reported a
+// positive finding; failed/timeout runs are surfaced separately, not as clear.
+function resultVerdict(job) {
+  if (job.status === 'queued') return {cls: 'pending', label: '대기'};
+  if (job.status === 'running') return {cls: 'pending', label: '실행 중'};
+  if (job.status === 'timeout') return {cls: 'warn', label: '타임아웃'};
+  if (job.status === 'failed') return {cls: 'warn', label: '실패'};
+  if (job.vulnerability_found === true) return {cls: 'hit', label: '탐지'};
+  return {cls: 'clear', label: '미탐지'};
+}
+
+function renderResults() {
+  const tbody = $('resultRows');
+  tbody.replaceChildren();
+  if (!resultJobs.length) {
+    const tr = document.createElement('tr'); tr.className = 'results-empty';
+    const td = document.createElement('td'); td.colSpan = 4;
+    td.textContent = '아직 실행 결과가 없습니다. [전체 시나리오 실행] 또는 표면별 [실행]을 눌러보세요.';
+    tr.append(td); tbody.append(tr);
+    $('resultsTally').textContent = '';
+    return;
+  }
+  for (const job of resultJobs) {
+    const info = scenarioInfo[job.scenario] || {index: '--', name: job.scenario};
+    const v = resultVerdict(job);
+    const tr = document.createElement('tr');
+
+    const scTd = document.createElement('td'); scTd.className = 'result-scenario';
+    const idx = document.createElement('span'); idx.className = 'result-index'; idx.textContent = info.index;
+    const nm = document.createElement('span'); nm.textContent = info.name;
+    scTd.append(idx, nm);
+
+    const tgTd = document.createElement('td'); tgTd.className = 'result-target';
+    const surfaceName = document.createElement('strong'); surfaceName.textContent = job.surface_name || '-';
+    const targetCode = document.createElement('code'); targetCode.textContent = job.target || '';
+    tgTd.append(surfaceName, targetCode);
+
+    const vTd = document.createElement('td'); vTd.className = 'result-verdict';
+    const badge = document.createElement('span'); badge.className = `verdict-badge ${v.cls}`; badge.textContent = v.label;
+    const summary = document.createElement('span'); summary.className = 'verdict-summary'; summary.textContent = job.summary || '';
+    vTd.append(badge, summary);
+
+    const logTd = document.createElement('td');
+    const viewBtn = document.createElement('button');
+    viewBtn.type = 'button'; viewBtn.className = 'small-action'; viewBtn.textContent = '로그 ↗';
+    viewBtn.addEventListener('click', async () => {
+      try {
+        showJob(await api(`/api/jobs/${encodeURIComponent(job.id)}`));
+        document.querySelector('.console-section').scrollIntoView({behavior: 'smooth', block: 'center'});
+      } catch (err) { notice(err.message); }
+    });
+    logTd.append(viewBtn);
+
+    tr.append(scTd, tgTd, vTd, logTd);
+    tbody.append(tr);
+  }
+  const hits = resultJobs.filter(j => j.vulnerability_found === true).length;
+  const fails = resultJobs.filter(j => ['failed', 'timeout'].includes(j.status)).length;
+  $('resultsTally').textContent = `총 ${resultJobs.length} · 탐지 ${hits} · 실패 ${fails}`;
 }
 
 async function refreshHistory() {
@@ -454,9 +609,12 @@ async function refreshHistory() {
     for (const job of history) {
       const row = document.createElement('div'); row.className = 'history-row';
       const details = document.createElement('div'); details.className = 'history-detail';
-      const title = document.createElement('strong'); title.textContent = `${job.surface_name} / ${job.status}`;
+      const title = document.createElement('strong'); title.textContent = job.surface_name;
+      const v = resultVerdict(job);
+      const verdict = document.createElement('small'); verdict.className = `history-verdict ${v.cls}`;
+      verdict.textContent = `${v.label} · ${job.summary || job.status}`;
       const sub = document.createElement('small'); sub.textContent = `${job.started_at || '대기 중'} · ${job.id}`;
-      details.append(title, sub);
+      details.append(title, verdict, sub);
       row.append(details, actionButton('VIEW ↗', 'small-action', async () => {
         try { showJob(await api(`/api/jobs/${encodeURIComponent(job.id)}`)); $('activity').scrollIntoView({behavior: 'smooth'}); }
         catch (err) { notice(err.message); }
@@ -490,7 +648,7 @@ async function refreshHealth() {
 
 rows.forEach(r => r.addEventListener('click', () => renderScenario(r)));
 $('runSelected').addEventListener('click', () => { if (currentMeta()) $('surfaces').scrollIntoView({behavior: 'smooth', block: 'start'}); });
-$('refreshBtn').addEventListener('click', async () => { await Promise.all([refreshHealth(), fetchSurfaces(), refreshHistory()]); if (activeBatch) await pollBatch(); });
+$('refreshBtn').addEventListener('click', async () => { await Promise.all([refreshHealth(), fetchSurfaces(), refreshHistory()]); });
 $('copyBtn').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText($('console').textContent); $('copyBtn').textContent = 'COPIED'; setTimeout(() => $('copyBtn').textContent = 'COPY LOG', 1500); }
   catch (_) { $('copyBtn').textContent = 'COPY FAILED'; }

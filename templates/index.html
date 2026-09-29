@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0f1725">
   <title>Attack Lab — Simulation Console</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='17-waf') }}">
-  <script src="{{ url_for('static', filename='app.js', v='17-waf') }}" defer></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='18-runall') }}">
+  <script src="{{ url_for('static', filename='app.js', v='18-runall') }}" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -63,7 +63,11 @@
     </section>
 
     <section class="activity-section" id="activity" aria-label="실행 로그 및 기록">
-      <div class="section-title"><div><div class="section-eyebrow">03 / EXECUTION &amp; LOGS</div><h2>실행 현황</h2></div><button type="button" class="refresh-button" id="refreshBtn"><span aria-hidden="true">↻</span> 새로고침</button></div>
+      <div class="section-title"><div><div class="section-eyebrow">03 / EXECUTION &amp; LOGS</div><h2>실행 현황</h2></div><div class="activity-actions"><button type="button" class="solid-btn" id="runAllScenarios"><span aria-hidden="true">▶</span> 전체 시나리오 실행</button><button type="button" class="refresh-button" id="refreshBtn"><span aria-hidden="true">↻</span> 새로고침</button></div></div>
+      <div class="results-panel" id="resultsPanel">
+        <div class="results-head"><div class="results-title"><strong>공격 결과</strong><span id="resultsProgress">실행하면 시나리오별 탐지 결과가 여기에 모입니다.</span></div><div class="results-tally" id="resultsTally"></div></div>
+        <div class="results-table-wrap"><table class="results-table"><thead><tr><th scope="col">시나리오</th><th scope="col">대상</th><th scope="col">탐지 결과</th><th scope="col">로그</th></tr></thead><tbody id="resultRows"><tr class="results-empty"><td colspan="4">아직 실행 결과가 없습니다. [전체 시나리오 실행] 또는 표면별 [실행]을 눌러보세요.</td></tr></tbody></table></div>
+      </div>
       <div class="activity-grid">
         <section class="console-section" aria-label="실시간 실행 로그"><div class="console-header"><div class="console-title"><span class="console-icon" aria-hidden="true">&gt;_</span> Execution log</div><span class="console-state"><span id="liveDot"></span><span id="liveState">IDLE</span></span></div><div class="console-subhead"><span id="jobName">sqlmap / no active job</span><button type="button" id="clearBtn">CLEAR</button><button type="button" id="copyBtn">COPY LOG</button></div><pre id="console" aria-live="polite">$ 연결 대상의 응답 상태를 확인하세요.
 $ SQL Injection을 선택하고 [실행]을 누르면 로그가 표시됩니다.</pre><div class="console-footer"><span id="resultSummary">실행 결과 대기 중</span><span id="executionId">NO ACTIVE RUN</span></div></section>
