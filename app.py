@@ -189,6 +189,48 @@ def http_auth_args(surface: dict, cookie_flag: str) -> list[str]:
     return args
 
 
+MAX_EXTRA_PARAMS_LEN = 512
+MAX_EXTRA_PARAMS = 20
+EXTRA_PARAM_KEY_RE = re.compile(r'[A-Za-z_][A-Za-z0-9_]{0,39}')
+EXTRA_PARAM_VAL_RE = re.compile(r'[^\r\n&]{0,64}')
+
+
+def valid_extra_params(data: dict, inject_key: str) -> str:
+    """Optional companion parameters sent alongside the injected one, for endpoints
+    that need several params present at once (e.g. ?id=1&category=2). Stored as a
+    normalized 'k=v&k2=v2' string; empty input is omitted. `inject_key` is the
+    surface's own injection parameter and must not be duplicated here."""
+    raw = data.get('extra_params', '') or ''
+    if not isinstance(raw, str):
+        raise ValueError('추가 파라미터는 문자열이어야 합니다.')
+    raw = raw.strip().strip('&')
+    if not raw:
+        return ''
+    if len(raw) > MAX_EXTRA_PARAMS_LEN:
+        raise ValueError(f'추가 파라미터는 {MAX_EXTRA_PARAMS_LEN}자 이하로 입력하세요.')
+    pairs: list[str] = []
+    seen: set[str] = set()
+    for chunk in raw.split('&'):
+        if not chunk:
+            continue
+        if '=' not in chunk:
+            raise ValueError(f'추가 파라미터 형식이 올바르지 않습니다: "{chunk}" (예: category=1&sort=asc)')
+        key, _, value = chunk.partition('=')
+        if not EXTRA_PARAM_KEY_RE.fullmatch(key):
+            raise ValueError(f'추가 파라미터 이름은 영문/숫자/밑줄로 입력하세요: "{key}"')
+        if not EXTRA_PARAM_VAL_RE.fullmatch(value):
+            raise ValueError(f'추가 파라미터 값은 줄바꿈·& 없이 64자 이하로 입력하세요: "{key}"')
+        if key == inject_key:
+            raise ValueError(f'"{key}"는 검사 파라미터와 같습니다. 추가 파라미터에는 다른 이름을 넣으세요.')
+        if key in seen:
+            raise ValueError(f'추가 파라미터 이름이 중복됩니다: "{key}"')
+        seen.add(key)
+        pairs.append(f'{key}={value}')
+    if len(pairs) > MAX_EXTRA_PARAMS:
+        raise ValueError(f'추가 파라미터는 최대 {MAX_EXTRA_PARAMS}개까지 입력하세요.')
+    return '&'.join(pairs)
+
+
 def valid_sqli_surface(data: dict) -> dict:
     if not isinstance(data, dict):
         raise ValueError('요청 형식이 올바르지 않습니다.')
@@ -210,7 +252,8 @@ def valid_sqli_surface(data: dict) -> dict:
     if not isinstance(test_value, str) or not re.fullmatch(r'[^\r\n]{1,64}', test_value):
         raise ValueError('기본값은 줄바꿈 없이 1~64자로 입력하세요.')
     return {'name': name.strip(), 'base_url': base_url, 'method': method, 'endpoint': endpoint,
-            'parameter': parameter, 'test_value': test_value, 'authorized': True, **valid_http_auth(data)}
+            'parameter': parameter, 'test_value': test_value, 'extra_params': valid_extra_params(data, parameter),
+            'authorized': True, **valid_http_auth(data)}
 
 
 def valid_bruteforce_surface(data: dict) -> dict:
@@ -379,12 +422,20 @@ def valid_waf_surface(data: dict) -> dict:
 def command_for_sqli(surface: dict, job_id: str) -> tuple[list[str], str]:
     url = surface['base_url'] + surface['endpoint']
     cmd = [shutil.which('sqlmap') or 'sqlmap']
+    # Companion params (if any) are sent alongside the injected one so endpoints that
+    # require several params present still respond; only -p <parameter> is tested.
+    params: dict[str, str] = {}
+    for chunk in (surface.get('extra_params') or '').split('&'):
+        if chunk and '=' in chunk:
+            key, _, value = chunk.partition('=')
+            params[key] = value
+    params[surface['parameter']] = surface['test_value']
     if surface['method'] == 'GET':
-        target = url + '?' + urlencode({surface['parameter']: surface['test_value']})
+        target = url + '?' + urlencode(params)
         cmd += ['-u', target]
     else:
         target = url + ' [POST form]'
-        cmd += ['-u', url, '--method=POST', '--data', urlencode({surface['parameter']: surface['test_value']})]
+        cmd += ['-u', url, '--method=POST', '--data', urlencode(params)]
     cmd += ['-p', surface['parameter'], '--batch', '--level=1', '--risk=1', '--threads=1',
             '--technique=BEU', '--timeout=5', '--retries=0', '--flush-session', '--disable-coloring',
             '--output-dir', str(LOG_DIR / 'sqlmap-work')]
