@@ -1,6 +1,6 @@
 [
   {
-    "name": "상품 조회",
+    "name": "상품 조회(XSS)",
     "endpoint": "/search",
     "parameter": "q",
     "test_value": "키보드",

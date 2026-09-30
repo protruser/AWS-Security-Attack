@@ -6,7 +6,7 @@
     "user_field": "username",
     "pass_field": "password",
     "failure_string": "올바르지 않습니다.",
-    "wordlist": "quick",
+    "wordlist": "standard",
     "id": "1a608930f1b9",
     "base_url": "http://wonny-sec-shop-alb-718900494.ap-northeast-2.elb.amazonaws.com",
     "authorized": true
