@@ -246,7 +246,9 @@ h3 { font-size: 24px; letter-spacing: -.8px; margin: 0 0 13px; line-height: 1.25
 .editor-grid label.checkbox-field { display: flex; flex-direction: row; align-items: center; gap: 9px; font-weight: 600; align-self: end; padding-bottom: 8px; }
 .editor-grid label.checkbox-field input { width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
 .editor-grid input, .editor-grid select { font: 12px var(--mono); min-width: 0; height: 39px; border: 1px solid #cfd9e8; border-radius: 5px; padding: 7px 10px; color: var(--ink); background: #fff; }
-.editor-grid input:focus, .editor-grid select:focus { outline: 2px solid #b5cbff; border-color: #7fa4f8; }
+.editor-grid textarea { font: 12px var(--mono); min-width: 0; border: 1px solid #cfd9e8; border-radius: 5px; padding: 7px 10px; color: var(--ink); background: #fff; resize: vertical; line-height: 1.5; }
+.editor-grid textarea { grid-column: 1 / -1; }
+.editor-grid input:focus, .editor-grid select:focus, .editor-grid textarea:focus { outline: 2px solid #b5cbff; border-color: #7fa4f8; }
 .editor-footer span { font-size: 11px; line-height: 1.5; color: var(--muted); }
 @media (max-width: 920px) { .editor-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 580px) { .surfaces-section { margin-top: 35px; } .surface-topline, .surface-bottom, .editor-footer { align-items: flex-start; flex-direction: column; } .surface-actions { width: 100%; flex-wrap: wrap; } .surface-actions button { flex: 1; } .surface-editor { padding: 15px; } .editor-grid { grid-template-columns: 1fr; } .surface-base { display: block; margin: 8px 0 0; } }

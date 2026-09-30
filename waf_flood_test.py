@@ -36,11 +36,11 @@ lock = threading.Lock()
 stop_flag = threading.Event()
 
 
-def send_one(url: str, timeout: float, verify: bool):
+def send_one(url: str, timeout: float, verify: bool, headers: dict | None = None):
     """요청 1건 전송 후 상태코드를 집계."""
     global errors
     try:
-        r = requests.get(url, timeout=timeout, verify=verify)
+        r = requests.get(url, timeout=timeout, verify=verify, headers=headers or None)
         with lock:
             counter[r.status_code] += 1
     except requests.RequestException:
@@ -48,10 +48,24 @@ def send_one(url: str, timeout: float, verify: bool):
             errors += 1
 
 
-def worker(url: str, timeout: float, verify: bool):
+def worker(url: str, timeout: float, verify: bool, headers: dict | None = None):
     """stop_flag가 설정될 때까지 계속 요청을 보내는 워커."""
     while not stop_flag.is_set():
-        send_one(url, timeout, verify)
+        send_one(url, timeout, verify, headers)
+
+
+def build_headers(header_list: list[str], cookie: str | None) -> dict:
+    """'-H "Name: value"' 반복 인자와 --cookie 값을 requests용 헤더 dict로 합친다."""
+    headers: dict = {}
+    for item in header_list or []:
+        if ':' in item:
+            name, value = item.split(':', 1)
+            name = name.strip()
+            if name:
+                headers[name] = value.strip()
+    if cookie:
+        headers['Cookie'] = cookie
+    return headers
 
 
 def reporter(interval: float):
@@ -89,6 +103,10 @@ def main():
                    help="중간 보고 주기(초) (기본 2)")
     p.add_argument("-k", "--insecure", action="store_true",
                    help="HTTPS 인증서 검증을 건너뜁니다 (자체 서명/사설 CA 대상용). http 대상에는 영향 없음.")
+    p.add_argument("-H", "--header", action="append", default=[], metavar="'Name: value'",
+                   help="추가 요청 헤더 (반복 가능, 예: -H 'Authorization: Bearer xxx')")
+    p.add_argument("--cookie", default=None,
+                   help="요청에 사용할 Cookie 헤더 값 (예: 'session=abc; token=xyz')")
     args = p.parse_args()
 
     # 상한 적용: 이 도구는 방어 규칙 검증용이므로 무제한 플러드로 쓰이지 않도록 고정 상한을 강제한다.
@@ -104,8 +122,12 @@ def main():
     if args.insecure:
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+    headers = build_headers(args.header, args.cookie)
+
     print(f"대상   : {args.url}")
     print(f"동시성 : {concurrency}  |  지속: {duration}s  |  인증서 검증: {'off' if args.insecure else 'on'}")
+    if headers:
+        print(f"세션   : 헤더 {len(headers)}개 적용 ({', '.join(sorted(headers))})")
     print("-" * 60)
 
     rep = threading.Thread(target=reporter, args=(args.interval,), daemon=True)
@@ -114,7 +136,7 @@ def main():
     start = time.time()
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
         for _ in range(concurrency):
-            pool.submit(worker, args.url, args.timeout, verify)
+            pool.submit(worker, args.url, args.timeout, verify, headers)
         time.sleep(duration)
         stop_flag.set()
 

@@ -20,6 +20,14 @@ const scenarioInfo = {};
 rows.forEach(r => { scenarioInfo[r.dataset.select] = {index: r.dataset.index, name: r.dataset.name, tool: r.dataset.tool}; });
 const AUTH_FIELD = {key: 'authorized', label: '테스트 권한 확인', type: 'checkbox',
   checkboxLabel: '이 대상을 테스트할 권한이 있음을 확인합니다', required: true};
+// Optional session auth for web scenarios: logged-in targets otherwise redirect
+// to a login page / return 401·403, so the scan never reaches the protected surface.
+const SESSION_FIELDS = [
+  {key: 'cookie', label: '세션 쿠키 (선택)', maxlength: 1024, required: false, placeholder: 'session=abc123; token=xyz'},
+  {key: 'headers', label: '추가 헤더 (선택 · 한 줄에 하나)', type: 'textarea', maxlength: 2048, required: false, placeholder: 'Authorization: Bearer eyJ...'},
+];
+// Marks a surface that carries session auth, so the list makes it obvious.
+function authTag(s) { return (s && (s.cookie || s.headers)) ? ' · 세션✔' : ''; }
 
 // Each implemented scenario declares its own surface fields (for the editor
 // form), how to render one row's detail column, and which /api/health tool
@@ -67,7 +75,7 @@ const SCENARIOS_META = {
     scopeLabel: '대상 설정',
     scopeDesc: '현재 등록한 대상에서 검사할 API 경로와 파라미터를 설정합니다.',
     sectionDesc: '대상 URL, API 경로, 검사 파라미터를 등록하고 관리합니다.',
-    editorNote: '등록한 API 경로가 실제로 존재해야 합니다. JSON 본문과 인증 헤더는 이 버전에서 지원하지 않습니다. 본인이 테스트 권한을 가진 대상만 등록하세요.',
+    editorNote: '등록한 API 경로가 실제로 존재해야 합니다. 로그인이 필요한 대상은 아래 세션 쿠키·헤더 필드에 값을 넣으면 인증 상태로 검사합니다. JSON 본문은 이 버전에서 지원하지 않습니다. 본인이 테스트 권한을 가진 대상만 등록하세요.',
     addLabel: '+ 공격 표면 추가',
     fields: [
       {key: 'name', label: '표면 이름', maxlength: 48, required: true, placeholder: '상품 검색'},
@@ -76,9 +84,10 @@ const SCENARIOS_META = {
       {key: 'endpoint', label: 'API 경로', maxlength: 96, required: true, placeholder: '/search'},
       {key: 'parameter', label: '검사 파라미터', maxlength: 40, required: true, placeholder: 'keyword'},
       {key: 'test_value', label: '기본값', maxlength: 64, required: true, placeholder: 'phone'},
+      ...SESSION_FIELDS,
       AUTH_FIELD,
     ],
-    detail: (s) => `${s.base_url} · ${s.method} ${s.endpoint} · 파라미터 ${s.parameter}=${s.test_value}`,
+    detail: (s) => `${s.base_url} · ${s.method} ${s.endpoint} · 파라미터 ${s.parameter}=${s.test_value}${authTag(s)}`,
   },
   bruteforce: {
     tool: 'hydra',
@@ -114,9 +123,10 @@ const SCENARIOS_META = {
       {key: 'base_path', label: '기준 경로', maxlength: 96, required: true, placeholder: '/'},
       {key: 'wordlist', label: '워드리스트', type: 'select',
         options: [['common', 'common (기본)'], ['small', 'small (빠름)'], ['big', 'big (느림 · 정밀)']]},
+      ...SESSION_FIELDS,
       AUTH_FIELD,
     ],
-    detail: (s) => `${s.base_url}${s.base_path} · 워드리스트 ${s.wordlist}`,
+    detail: (s) => `${s.base_url}${s.base_path} · 워드리스트 ${s.wordlist}${authTag(s)}`,
   },
   portscan: {
     tool: 'nmap',
@@ -161,9 +171,10 @@ const SCENARIOS_META = {
         options: [['10', '10 (약)'], ['25', '25 (중)'], ['50', '50 (강, 최대)']]},
       {key: 'duration', label: '지속 시간(초)', type: 'select',
         options: [['15', '15초'], ['30', '30초'], ['60', '60초 (최대)']]},
+      ...SESSION_FIELDS,
       AUTH_FIELD,
     ],
-    detail: (s) => `${s.base_url}${s.path} · c=${s.concurrency}, d=${s.duration}s`,
+    detail: (s) => `${s.base_url}${s.path} · c=${s.concurrency}, d=${s.duration}s${authTag(s)}`,
   },
 };
 
@@ -324,6 +335,13 @@ function openEditor(surface = null) {
         const opt = document.createElement('option'); opt.value = value; opt.textContent = text; input.append(opt);
       }
       input.value = surface?.[field.key] ?? field.options[0][0];
+    } else if (field.type === 'textarea') {
+      input = document.createElement('textarea');
+      input.maxLength = field.maxlength;
+      input.required = Boolean(field.required);
+      input.placeholder = field.placeholder || '';
+      input.rows = field.rows || 3;
+      input.value = surface?.[field.key] ?? '';
     } else {
       input = document.createElement('input');
       input.type = 'text';
