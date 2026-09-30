@@ -84,10 +84,11 @@ const SCENARIOS_META = {
       {key: 'endpoint', label: 'API 경로', maxlength: 96, required: true, placeholder: '/search'},
       {key: 'parameter', label: '검사 파라미터', maxlength: 40, required: true, placeholder: 'keyword'},
       {key: 'test_value', label: '기본값', maxlength: 64, required: true, placeholder: 'phone'},
+      {key: 'extra_params', label: '추가 파라미터 (선택 · key=value&...)', maxlength: 512, required: false, placeholder: 'category=1&sort=asc'},
       ...SESSION_FIELDS,
       AUTH_FIELD,
     ],
-    detail: (s) => `${s.base_url} · ${s.method} ${s.endpoint} · 파라미터 ${s.parameter}=${s.test_value}${authTag(s)}`,
+    detail: (s) => `${s.base_url} · ${s.method} ${s.endpoint} · 파라미터 ${s.parameter}=${s.test_value}${s.extra_params ? ' &' + s.extra_params : ''}${authTag(s)}`,
   },
   bruteforce: {
     tool: 'hydra',
