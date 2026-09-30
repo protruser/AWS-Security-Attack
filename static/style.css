@@ -134,6 +134,9 @@ h3 { font-size: 24px; letter-spacing: -.8px; margin: 0 0 13px; line-height: 1.25
 .history-heading { height: 51px; padding: 0 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); }
 .history-heading strong { font-size: 12px; }
 .history-heading span { font: 10px var(--mono); color: #97a2b2; }
+.history-heading-actions { display: inline-flex; align-items: center; gap: 10px; }
+.history-heading .small-action { border: 1px solid var(--line); background: #fff; color: var(--subtle); border-radius: 4px; padding: 5px 9px; font: 10px var(--mono); letter-spacing: .2px; cursor: pointer; }
+.history-heading .small-action:hover { background: #fdecec; color: #b0242c; border-color: #f3c9cb; }
 .history-list { flex: 1; min-height: 238px; max-height: 290px; overflow-y: auto; }
 .empty { margin: 0; padding: 30px 18px; color: var(--muted); font-size: 12px; }
 .history-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 15px 18px; border-bottom: 1px solid #e9edf3; }

@@ -717,7 +717,17 @@ $('clearBtn').addEventListener('click', () => {
   // Display-only: clears what's shown here, not the saved logs/ files or job history.
   $('console').textContent = '$ 화면을 비웠습니다. 저장된 로그 파일은 그대로 남아 있습니다.';
 });
-function clock() { $('clock').textContent = new Intl.DateTimeFormat('ko-KR', {hour:'2-digit', minute:'2-digit', hour12:false}).format(new Date()); }
+$('clearHistoryBtn').addEventListener('click', async () => {
+  // Clears the in-memory run history only; the saved logs/ files stay on disk.
+  if (busy()) { notice('검사가 진행 중입니다. 완료 후 기록을 지워주세요.'); return; }
+  if (!confirm('최근 실행 기록을 지울까요? 저장된 로그 파일(logs/)은 그대로 유지됩니다.')) return;
+  try {
+    const result = await api('/api/jobs', {method: 'DELETE'});
+    await refreshHistory();
+    notice(`실행 기록 ${result.cleared}건을 지웠습니다. 저장된 로그 파일은 유지됩니다.`);
+  } catch (err) { notice(err.message); }
+});
+function clock() { $('clock').textContent = new Intl.DateTimeFormat('ko-KR', {timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false}).format(new Date()) + ' KST'; }
 clock(); setInterval(clock, 30_000);
 renderScenario(selectedScenario);
 refreshHistory();
