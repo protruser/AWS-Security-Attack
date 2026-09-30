@@ -974,6 +974,21 @@ def recent_jobs():
         return jsonify([exposed(j, include_log=False) for j in recent])
 
 
+@app.delete('/api/jobs')
+def clear_jobs():
+    # Clears the in-memory run history only; saved logs/ files stay on disk. Jobs
+    # from a batch still running are kept so an active scan isn't disturbed.
+    with lock:
+        if active_batch:
+            keep = set(batches.get(active_batch, {}).get('job_ids') or [])
+        else:
+            keep = set()
+        removed = [jid for jid in list(jobs) if jid not in keep]
+        for jid in removed:
+            del jobs[jid]
+        return jsonify({'cleared': len(removed), 'kept': len(keep)})
+
+
 @app.get('/api/jobs/<job_id>')
 def job_status(job_id):
     with lock:
