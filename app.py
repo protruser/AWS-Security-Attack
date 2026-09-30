@@ -141,6 +141,54 @@ def require_authorized(data: dict) -> None:
         raise ValueError('이 대상을 테스트할 권한이 있음을 확인해야 등록할 수 있습니다.')
 
 
+MAX_COOKIE_LEN = 1024
+MAX_HEADERS_LEN = 2048
+MAX_HEADER_LINES = 10
+HEADER_LINE_RE = re.compile(r"[A-Za-z0-9!#$%&'*+.^_`|~-]+:[ \t]?[^\r\n]{1,}")
+
+
+def valid_http_auth(data: dict) -> dict:
+    """Optional session auth shared by the web scenarios: a Cookie header value
+    and/or extra request headers (one 'Name: value' per line). Both are optional;
+    empty input is omitted so unauthenticated surfaces keep working unchanged."""
+    out: dict = {}
+    cookie = data.get('cookie', '') or ''
+    if not isinstance(cookie, str):
+        raise ValueError('쿠키는 문자열이어야 합니다.')
+    cookie = cookie.strip()
+    if cookie:
+        if len(cookie) > MAX_COOKIE_LEN or '\n' in cookie or '\r' in cookie:
+            raise ValueError(f'쿠키는 줄바꿈 없이 {MAX_COOKIE_LEN}자 이하로 입력하세요. 예: session=abc; token=xyz')
+        out['cookie'] = cookie
+    headers = data.get('headers', '') or ''
+    if not isinstance(headers, str):
+        raise ValueError('헤더는 문자열이어야 합니다.')
+    if len(headers) > MAX_HEADERS_LEN:
+        raise ValueError(f'헤더는 {MAX_HEADERS_LEN}자 이하로 입력하세요.')
+    lines = [ln.strip() for ln in headers.replace('\r\n', '\n').replace('\r', '\n').split('\n') if ln.strip()]
+    if len(lines) > MAX_HEADER_LINES:
+        raise ValueError(f'헤더는 최대 {MAX_HEADER_LINES}줄까지 입력하세요.')
+    for ln in lines:
+        if not HEADER_LINE_RE.fullmatch(ln):
+            raise ValueError(f'헤더 형식이 올바르지 않습니다: "{ln}" (예: Authorization: Bearer xxx)')
+    if lines:
+        out['headers'] = '\n'.join(lines)
+    return out
+
+
+def http_auth_args(surface: dict, cookie_flag: str) -> list[str]:
+    """Turn a surface's optional cookie/headers into argv flags. `cookie_flag`
+    differs per tool (sqlmap: --cookie, gobuster: -c); both take headers via -H."""
+    args: list[str] = []
+    if surface.get('cookie'):
+        args += [cookie_flag, surface['cookie']]
+    for line in (surface.get('headers') or '').split('\n'):
+        line = line.strip()
+        if line:
+            args += ['-H', line]
+    return args
+
+
 def valid_sqli_surface(data: dict) -> dict:
     if not isinstance(data, dict):
         raise ValueError('요청 형식이 올바르지 않습니다.')
@@ -162,7 +210,7 @@ def valid_sqli_surface(data: dict) -> dict:
     if not isinstance(test_value, str) or not re.fullmatch(r'[^\r\n]{1,64}', test_value):
         raise ValueError('기본값은 줄바꿈 없이 1~64자로 입력하세요.')
     return {'name': name.strip(), 'base_url': base_url, 'method': method, 'endpoint': endpoint,
-            'parameter': parameter, 'test_value': test_value, 'authorized': True}
+            'parameter': parameter, 'test_value': test_value, 'authorized': True, **valid_http_auth(data)}
 
 
 def valid_bruteforce_surface(data: dict) -> dict:
@@ -247,7 +295,8 @@ def valid_directory_surface(data: dict) -> dict:
         raise ValueError('기준 경로는 /app처럼 경로만 입력하세요. 전체 URL, .., //는 사용할 수 없습니다.')
     if wordlist not in DIRECTORY_WORDLISTS:
         raise ValueError(f'워드리스트는 {", ".join(DIRECTORY_WORDLISTS)} 중 하나여야 합니다.')
-    return {'name': name.strip(), 'base_url': base_url, 'base_path': base_path, 'wordlist': wordlist, 'authorized': True}
+    return {'name': name.strip(), 'base_url': base_url, 'base_path': base_path, 'wordlist': wordlist,
+            'authorized': True, **valid_http_auth(data)}
 
 
 def _expand_port_count(spec: str) -> int:
@@ -320,7 +369,7 @@ def valid_waf_surface(data: dict) -> dict:
     concurrency = _valid_bounded_int(data.get('concurrency'), '동시성', 1, MAX_WAF_CONCURRENCY)
     duration = _valid_bounded_int(data.get('duration'), '지속 시간', 1, MAX_WAF_DURATION)
     return {'name': name.strip(), 'base_url': base_url, 'path': path,
-            'concurrency': concurrency, 'duration': duration, 'authorized': True}
+            'concurrency': concurrency, 'duration': duration, 'authorized': True, **valid_http_auth(data)}
 
 
 # ---------------------------------------------------------------------------
@@ -339,6 +388,7 @@ def command_for_sqli(surface: dict, job_id: str) -> tuple[list[str], str]:
     cmd += ['-p', surface['parameter'], '--batch', '--level=1', '--risk=1', '--threads=1',
             '--technique=BEU', '--timeout=5', '--retries=0', '--flush-session', '--disable-coloring',
             '--output-dir', str(LOG_DIR / 'sqlmap-work')]
+    cmd += http_auth_args(surface, '--cookie')  # optional session cookie / headers
     return cmd, target
 
 
@@ -395,6 +445,7 @@ def command_for_directory(surface: dict, job_id: str) -> tuple[list[str], str]:
     blacklist = _gobuster_blacklist_flag()
     cmd = [shutil.which('gobuster') or 'gobuster', 'dir', '-u', url, '-w', wordlist, '-k',
            *blacklist, '-t', '10', '--timeout', '5s', '-q', '--no-progress', '--no-error', '--no-color']
+    cmd += http_auth_args(surface, '-c')  # optional session cookie / headers
     return cmd, url
 
 
@@ -437,6 +488,12 @@ def command_for_waf(surface: dict, job_id: str) -> tuple[list[str], str]:
     # -k: lab targets often use self-signed certs, and it's a no-op on http.
     cmd = [sys.executable, '-u', str(WAF_SCRIPT), url,
            '-c', str(surface['concurrency']), '-d', str(surface['duration']), '--insecure']
+    if surface.get('cookie'):
+        cmd += ['--cookie', surface['cookie']]
+    for line in (surface.get('headers') or '').split('\n'):
+        line = line.strip()
+        if line:
+            cmd += ['--header', line]
     return cmd, f'{url} (c={surface["concurrency"]}, d={surface["duration"]}s)'
 
 
