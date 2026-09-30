@@ -513,15 +513,43 @@ def detect_portscan(surface: dict, output: str, returncode: int, job_id: str) ->
     return count > 0, (f'열린 포트 {count}개 발견 · Nmap 기준' if count else '검사 완료 · 열린 포트 없음')
 
 
-def detect_image(surface: dict, output: str, returncode: int, job_id: str) -> tuple[bool, str]:
-    count = 0
+SEVERITY_ORDER = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'UNKNOWN': 4}
+MAX_FINDINGS = 1000  # Bound the structured list stored per job so the log JSON stays small.
+
+
+def detect_image(surface: dict, output: str, returncode: int, job_id: str):
+    # Trivy's per-vulnerability detail is only available here, at detection time
+    # (the raw log on disk is truncated to MAX_LOG_CHARS and loses most CVEs), so
+    # extract a structured, durable findings list the UI can link back to.
+    findings: list[dict] = []
+    counts: dict[str, int] = {}
     try:
         data = json.loads(output)
         for result in data.get('Results') or []:
-            count += len(result.get('Vulnerabilities') or [])
+            for vuln in result.get('Vulnerabilities') or []:
+                sev = (vuln.get('Severity') or 'UNKNOWN').upper()
+                counts[sev] = counts.get(sev, 0) + 1
+                findings.append({
+                    'id': vuln.get('VulnerabilityID') or '?',
+                    'severity': sev,
+                    'pkg': vuln.get('PkgName') or '',
+                    'installed': vuln.get('InstalledVersion') or '',
+                    'fixed': vuln.get('FixedVersion') or '',
+                    'title': vuln.get('Title') or vuln.get('Description') or '',
+                    'url': vuln.get('PrimaryURL') or '',
+                })
     except (json.JSONDecodeError, AttributeError):
-        count = 0
-    return count > 0, (f'취약점 {count}건 발견 · Trivy 기준' if count else '검사 완료 · 취약점 없음')
+        return False, '검사 완료 · 응답 파싱 실패', None
+    total = len(findings)
+    if not total:
+        return False, '검사 완료 · 취약점 없음', None
+    findings.sort(key=lambda f: (SEVERITY_ORDER.get(f['severity'], 5), f['id']))
+    stored = findings[:MAX_FINDINGS]
+    breakdown = ' · '.join(f'{sev} {counts[sev]}' for sev in SEVERITY_ORDER if counts.get(sev))
+    summary = f'취약점 {total}건 발견 ({breakdown}) · Trivy 기준'
+    if total > len(stored):
+        summary += f' · 상세 {len(stored)}건 표시'
+    return True, summary, stored
 
 
 def detect_waf(surface: dict, output: str, returncode: int, job_id: str) -> tuple[bool, str]:
@@ -757,10 +785,16 @@ def append_log(job: dict, text: str) -> None:
         job['log'] = (job['log'] + text)[-MAX_LOG_CHARS:]
 
 
-def exposed(job: dict, include_log=True) -> dict:
+def exposed(job: dict, include_log=True, include_findings=None) -> dict:
+    # findings can be a long list, so list endpoints (include_log=False) omit it by
+    # default; the disk log and the single-job detail endpoint keep it.
+    if include_findings is None:
+        include_findings = include_log
     keys = ('id', 'batch_id', 'scenario', 'surface_id', 'surface_name', 'target',
             'status', 'started_at', 'finished_at', 'summary', 'vulnerability_found', 'exit_code')
     data = {k: job.get(k) for k in keys}
+    if include_findings:
+        data['findings'] = job.get('findings')
     if include_log:
         data['log'] = job['log']
     return data
@@ -769,7 +803,9 @@ def exposed(job: dict, include_log=True) -> dict:
 def save_job(job: dict) -> None:
     target = LOG_DIR / job['id']
     target.with_suffix('.txt').write_text(job['log'], encoding='utf-8')
-    target.with_suffix('.json').write_text(json.dumps(exposed(job, include_log=False), ensure_ascii=False, indent=2), encoding='utf-8')
+    target.with_suffix('.json').write_text(
+        json.dumps(exposed(job, include_log=False, include_findings=True), ensure_ascii=False, indent=2),
+        encoding='utf-8')
 
 
 def prune_memory() -> None:
@@ -839,10 +875,14 @@ def execute_job(job: dict, surface: dict, cfg: dict) -> None:
             drained_err.wait(timeout=3)
             with lock:
                 if status == 'completed':
-                    found, summary = cfg['detect'](surface, ''.join(stdout_chunks), proc.returncode, job['id'])
+                    # Detectors return (found, summary) or (found, summary, findings).
+                    detection = cfg['detect'](surface, ''.join(stdout_chunks), proc.returncode, job['id'])
+                    found, summary = detection[0], detection[1]
+                    findings = detection[2] if len(detection) > 2 else None
                 else:
-                    found, summary = False, '검사 중단 · 로그 확인 필요'
+                    found, summary, findings = False, '검사 중단 · 로그 확인 필요', None
                 job['vulnerability_found'] = found
+                job['findings'] = findings
                 job['status'] = status
                 job['exit_code'] = proc.returncode
                 job['summary'] = summary

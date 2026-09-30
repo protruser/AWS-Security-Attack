@@ -492,6 +492,66 @@ function showJob(job) {
   }
   $('liveState').textContent = String(job.status).toUpperCase();
   $('liveDot').style.background = ['queued', 'running'].includes(job.status) ? '#63b98a' : '#929e92';
+  renderFindings(job.findings);
+}
+
+// Render the structured per-CVE findings (currently produced by the image scan)
+// as a linked table under the console. Absent/empty findings hide the panel.
+function renderFindings(findings) {
+  const box = $('findings');
+  if (!box) return;
+  if (!Array.isArray(findings) || !findings.length) {
+    box.hidden = true;
+    box.replaceChildren();
+    return;
+  }
+  box.hidden = false;
+  const head = document.createElement('div');
+  head.className = 'findings-head';
+  head.textContent = `탐지된 취약점 상세 · ${findings.length}건`;
+
+  const table = document.createElement('table');
+  table.className = 'findings-table';
+  const thead = document.createElement('thead');
+  const hr = document.createElement('tr');
+  for (const label of ['CVE', '심각도', '패키지', '설치 버전', '수정 버전']) {
+    const th = document.createElement('th');
+    th.scope = 'col';
+    th.textContent = label;
+    hr.append(th);
+  }
+  thead.append(hr);
+
+  const tbody = document.createElement('tbody');
+  for (const f of findings) {
+    const tr = document.createElement('tr');
+
+    const idTd = document.createElement('td');
+    if (f.url) {
+      const a = document.createElement('a');
+      a.href = f.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.textContent = f.id || '?'; a.title = f.title || '';
+      idTd.append(a);
+    } else {
+      idTd.textContent = f.id || '?';
+      idTd.title = f.title || '';
+    }
+
+    const sevTd = document.createElement('td');
+    const sev = document.createElement('span');
+    sev.className = `sev sev-${String(f.severity || 'unknown').toLowerCase()}`;
+    sev.textContent = f.severity || '-';
+    sevTd.append(sev);
+
+    const pkgTd = document.createElement('td'); pkgTd.textContent = f.pkg || '';
+    const insTd = document.createElement('td'); insTd.textContent = f.installed || '';
+    const fixTd = document.createElement('td'); fixTd.textContent = f.fixed || '-';
+
+    tr.append(idTd, sevTd, pkgTd, insTd, fixTd);
+    tbody.append(tr);
+  }
+  table.append(thead, tbody);
+  box.replaceChildren(head, table);
 }
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
