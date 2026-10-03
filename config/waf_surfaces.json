@@ -6,6 +6,7 @@
     "concurrency": 50,
     "duration": 30,
     "authorized": true,
-    "id": "7582d409f521"
+    "id": "7582d409f521",
+    "cookie": "session=eyJ1c2VyX2lkIjoxfQ.arx1dQ.Kg8Uz45WiWopLY8oqB6UU0PNfrg;"
   }
 ]

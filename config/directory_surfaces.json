@@ -5,6 +5,7 @@
     "wordlist": "big",
     "id": "c9d40715a576",
     "base_url": "http://wonny-sec-shop-alb-718900494.ap-northeast-2.elb.amazonaws.com",
-    "authorized": true
+    "authorized": true,
+    "cookie": "session=eyJ1c2VyX2lkIjoxfQ.arx1dQ.Kg8Uz45WiWopLY8oqB6UU0PNfrg;"
   }
 ]

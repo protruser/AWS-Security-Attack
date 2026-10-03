@@ -5,7 +5,16 @@
     "parameter": "q",
     "test_value": "키보드",
     "id": "7c85378fc300",
-    "base_url": "http://127.0.0.1:5000",
+    "base_url": "http://wonny-sec-shop-alb-718900494.ap-northeast-2.elb.amazonaws.com",
     "authorized": true
+  },
+  {
+    "name": "후기 작성",
+    "base_url": "http://wonny-sec-shop-alb-718900494.ap-northeast-2.elb.amazonaws.com",
+    "endpoint": "/products/2/reviews",
+    "parameter": "content",
+    "test_value": "test",
+    "authorized": true,
+    "id": "de28132322bf"
   }
 ]
