@@ -8,8 +8,8 @@
     "id": "9f96e458ac3e",
     "base_url": "http://wonny-sec-shop-alb-718900494.ap-northeast-2.elb.amazonaws.com",
     "authorized": true,
-    "cookie": "session=eyJ1c2VyX2lkIjoxfQ.arx1dQ.Kg8Uz45WiWopLY8oqB6UU0PNfrg;",
-    "extra_params": "session=eyJ1c2VyX2lkIjoxfQ.arx1dQ.Kg8Uz45WiWopLY8oqB6UU0PNfrg;"
+    "cookie": "session=eyJ1c2VyX2lkIjoxfQ.arynrA.Vx3hzDWE_D2znk0uqNbCVN_pGcU",
+    "extra_params": ""
   },
   {
     "name": "상품 주문",
@@ -20,7 +20,7 @@
     "test_value": "1",
     "extra_params": "quantity=1",
     "authorized": true,
-    "cookie": "session=eyJ1c2VyX2lkIjoxfQ.arx1dQ.Kg8Uz45WiWopLY8oqB6UU0PNfrg;",
+    "cookie": "session=eyJ1c2VyX2lkIjoxfQ.arynrA.Vx3hzDWE_D2znk0uqNbCVN_pGcU",
     "id": "56eadfe31cfe"
   }
 ]
